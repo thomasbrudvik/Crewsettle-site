@@ -1,4 +1,9 @@
+<!doctype html>
+<html lang="en">
+<head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="CrewSettle turns fish tickets into crew share settlements. Built for skippers, owners and bookkeepers on boats that pay crew by share.">
 <title>CrewSettle</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -142,6 +147,8 @@ section.block::before{content:"";position:absolute;left:0;right:0;top:0;height:1
 </style>
 
 <div class="herobg"><canvas class="chart" data-chart="hero" aria-hidden="true"></canvas>
+</head>
+<body>
 <div class="wrap">
   <header class="topbar">
     <a class="brand" href="#top" id="top">
@@ -285,8 +292,8 @@ section.block::before{content:"";position:absolute;left:0;right:0;top:0;height:1
     </div>
     <div>
       <div class="applycard">
-        <h3>Apply in about two minutes</h3>
-        <p>A short form: your name, your boat, your home port, and how you do settlements today. I read every application myself and reply within 24&#x2013;48 hours.</p>
+        <h3>Apply in under a minute</h3>
+        <p>A short form: your name, your boat, your home port, and how you do settlements today. I read every application myself and reply within 24 hours.</p>
         <a class="btn primary big" href="https://tally.so/r/WOxGYP" target="_blank" rel="noopener">Apply for the pilot &#x2197;</a>
         <p class="hint">The form opens in a new tab. Rather talk first? Email <b>thomas@crewsettle.com</b> or <a href="https://wa.me/4745772218" target="_blank" rel="noopener">message me on WhatsApp</a>.</p>
       </div>
@@ -313,7 +320,7 @@ section.block::before{content:"";position:absolute;left:0;right:0;top:0;height:1
 <section class="block" id="contact">
   <div class="wrap">
     <h2 class="sec">Questions? Get in touch.</h2>
-    <p class="sub">I'm in Norway and part of the time at sea, so I answer within 24&#x2013;48 hours. Email or WhatsApp works best.</p>
+    <p class="sub">I'm in Norway and part of the time at sea, but I answer within 24 hours. Email or WhatsApp works best.</p>
     <div class="contact">
       <div class="cc"><span class="k">Email</span><span class="v" id="c-email">thomas@crewsettle.com</span><button class="copy" data-copy="c-email">Copy email</button></div>
       <div class="cc"><span class="k">Phone / WhatsApp</span><span class="v" id="c-phone">+47 457 72 218</span><div class="row"><button class="copy" data-copy="c-phone">Copy number</button><a class="copy" href="https://wa.me/4745772218" target="_blank" rel="noopener">Open WhatsApp</a></div></div>
@@ -375,3 +382,5 @@ try{new MutationObserver(redraw).observe(document.documentElement,{attributes:tr
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(redraw);
 redraw();
 </script>
+</body>
+</html>
