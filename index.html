@@ -1,0 +1,377 @@
+<meta charset="utf-8">
+<title>CrewSettle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single editorial column for a working fisherman's product - hero with a real settlement slip, then steps, transparency, pilot, contact */
+:root{
+  --bg:#f1f4f5; --panel:#ffffff; --ink:#132029; --muted:#55666f; --line:#d5dee2;
+  --accent:#0d5f67; --accent-soft:#dbeceb; --buoy:#c4501f; --ok:#2e7d4f; --deep:#0f2a33; --rope:#a9bbc1; --contour:#8fb0b6;
+  --display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1519; --panel:#142129; --ink:#e3ebee; --muted:#93a4ac; --line:#25343c;
+  --accent:#55b6bc; --accent-soft:#15343a; --buoy:#ec7a45; --ok:#6cc392; --deep:#081014; --rope:#3a4d55; --contour:#3d6670; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1519; --panel:#142129; --ink:#e3ebee; --muted:#93a4ac; --line:#25343c;
+  --accent:#55b6bc; --accent-soft:#15343a; --buoy:#ec7a45; --ok:#6cc392; --deep:#081014; --rope:#3a4d55; --contour:#3d6670; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.6}
+a{color:var(--accent)}
+.wrap{max-width:1040px;margin:0 auto;padding-inline:20px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-block:18px}
+.brand{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-family:var(--display);font-weight:700;font-size:1.35rem;letter-spacing:.01em;color:var(--ink);text-decoration:none}
+.brand svg{width:28px;height:28px;color:var(--accent)}
+.pill{white-space:nowrap;display:inline-block;font-family:var(--body);font-size:.7rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--buoy);color:var(--buoy);border-radius:999px;padding:2px 9px;vertical-align:middle}
+.nav{display:flex;gap:18px;flex-wrap:wrap;font-size:.92rem}
+.nav a{color:var(--muted);text-decoration:none;font-weight:500}
+.nav a:hover{color:var(--accent)}
+.hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:48px;align-items:center;padding-block:36px 64px}
+.eyebrow{font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:600;margin:0 0 10px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,6vw,4.4rem);line-height:.95;letter-spacing:-.005em;margin:0;text-wrap:balance}
+h1 em{font-style:normal;color:var(--accent)}
+.lead{font-size:1.15rem;color:var(--muted);max-width:52ch;margin:18px 0 26px}
+.ctas{display:flex;gap:12px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:12px 20px;border-radius:8px;font-weight:600;text-decoration:none;border:2px solid var(--accent);font-size:1rem;cursor:pointer;font-family:inherit}
+.btn.primary{background:var(--accent);color:var(--panel)}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--buoy);outline-offset:2px}
+.status{margin:20px 0 0;font-size:.85rem;color:var(--muted);display:flex;gap:8px;align-items:baseline}
+.status b{color:var(--buoy)}
+/* slip */
+.slip{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;box-shadow:0 18px 40px -24px rgba(10,30,40,.35);position:relative}
+.slip::before{content:"";position:absolute;left:0;right:0;top:0;height:6px;border-radius:12px 12px 0 0;background:repeating-linear-gradient(90deg,var(--accent) 0 14px,transparent 14px 20px)}
+.slip h2{font-family:var(--display);font-size:1.3rem;margin:8px 0 2px;letter-spacing:.02em;text-transform:uppercase}
+.slip .meta{font-size:.8rem;color:var(--muted);margin:0 0 12px}
+.wf{display:grid;grid-template-columns:1.2em minmax(0,1fr) auto;gap:6px;padding:8px 0;border-bottom:1px solid var(--line);font-size:.95rem;align-items:baseline}
+.wf .op{font-family:var(--mono);color:var(--muted);text-align:center}
+.wf .n{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.wf.t{font-weight:600}
+.wf.hl{border-bottom:0;background:var(--accent-soft);margin:6px -20px -20px;padding:12px 20px;border-radius:0 0 12px 12px;font-weight:700}
+.wf.hl .n{color:var(--accent);font-size:1.05rem}
+.example{position:absolute;right:16px;top:20px;font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 8px}
+/* sections */
+section.block{padding-block:56px;border-top:1px solid var(--line)}
+h2.sec{font-family:var(--display);font-weight:700;font-size:clamp(1.9rem,4vw,2.6rem);line-height:1.02;margin:0 0 10px;text-wrap:balance}
+.sub{color:var(--muted);max-width:62ch;margin:0 0 28px;font-size:1.05rem}
+.steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;counter-reset:s}
+.steps li{counter-increment:s;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;min-width:0}
+.steps li::before{content:counter(s);display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--accent);color:var(--panel);font-family:var(--display);font-weight:700;font-size:1.2rem;margin-bottom:12px}
+.steps h3,.cards h3{margin:0 0 6px;font-size:1.08rem}
+.steps p,.cards p{margin:0;color:var(--muted);font-size:.95rem}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;align-items:start}
+.checks{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.checks li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:10px;align-items:start}
+.checks li::before{content:"";width:18px;height:18px;margin-top:4px;border-radius:4px;background:var(--accent-soft);border:2px solid var(--accent);box-shadow:inset 0 0 0 3px var(--panel)}
+.checks b{font-weight:600}
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.cards div{border-top:3px solid var(--accent);padding-top:14px;min-width:0}
+.founder{background:var(--deep);color:#e6eef0;border-radius:14px;padding:clamp(24px,4vw,44px);display:grid;grid-template-columns:auto minmax(0,1fr);gap:32px;align-items:center}
+.founder .years{font-family:var(--display);font-weight:800;font-size:clamp(4rem,10vw,6.5rem);line-height:.85;color:#ec7a45}
+.founder .years small{display:block;font-size:1rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#a9bcc2;margin-top:8px}
+.founder h2{font-family:var(--display);font-size:clamp(1.7rem,3.6vw,2.3rem);margin:0 0 10px;line-height:1.05;color:#ffffff}
+.founder p{margin:0 0 10px;color:#c7d5d9;max-width:60ch}
+.founder blockquote{margin:14px 0 0;padding-left:14px;border-left:3px solid #ec7a45;color:#ffffff;font-size:1.08rem}
+.founder cite{display:block;font-style:normal;font-size:.85rem;color:#a9bcc2;margin-top:6px}
+.promise{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px}
+.promise h3{font-family:var(--display);font-size:1.6rem;margin:0 0 12px}
+.pilot-box{background:var(--accent-soft);border:1px solid var(--accent);border-radius:12px;padding:24px}
+.pilot-box .price{font-family:var(--display);font-weight:800;font-size:2.4rem;line-height:1;color:var(--accent);margin:0}
+.pilot-box p{margin:8px 0 0}
+/* form */
+form{display:grid;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+label{display:grid;gap:5px;font-size:.85rem;font-weight:600;color:var(--ink);min-width:0}
+input,select,textarea{font:inherit;font-size:1rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;width:100%;min-width:0}
+textarea{min-height:96px;resize:vertical}
+.cb{display:grid;grid-template-columns:22px minmax(0,1fr);gap:10px;font-weight:400;align-items:start}
+.cb input{width:18px;height:18px;margin-top:3px}
+.hint{color:var(--muted);font-size:.85rem;margin:0}
+.out{display:grid;gap:12px;border:2px solid var(--accent);border-radius:12px;padding:18px;background:var(--panel)}
+.out pre{white-space:pre-wrap;word-break:break-word;font-family:var(--mono);font-size:.82rem;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;margin:0;max-height:320px;overflow:auto}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.applycard{display:grid;gap:14px;background:var(--panel);border:2px solid var(--accent);border-radius:12px;padding:28px;align-content:start}
+.applycard h3{font-family:var(--display);font-size:1.8rem;margin:0;line-height:1.05}
+.applycard p{margin:0}
+.btn.big{min-height:56px;font-size:1.1rem;justify-self:start}
+.contact{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.cc{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;display:grid;gap:8px;min-width:0}
+.cc .k{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.cc .v{font-family:var(--mono);font-size:1.05rem;overflow-wrap:anywhere;user-select:all}
+.copy{justify-self:start;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px;padding:6px 12px;font:inherit;font-size:.85rem;cursor:pointer}
+footer{padding-block:32px 48px;border-top:1px solid var(--line);color:var(--muted);font-size:.85rem;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+@media (max-width:820px){
+  .hero,.two,.founder{grid-template-columns:minmax(0,1fr)}
+  .steps,.cards,.contact{grid-template-columns:minmax(0,1fr)}
+  .hero{gap:32px;padding-block:20px 48px}
+}
+@media (max-width:480px){
+  .wrap{padding-inline:16px}
+  .grid2{grid-template-columns:minmax(0,1fr)}
+  .nav{display:none}
+}
+
+
+.spots{margin-top:12px!important;padding-top:12px;border-top:1px solid var(--accent)}
+.spots b{color:var(--buoy)}
+.faq{display:grid;gap:10px;max-width:760px}
+.faq details{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:0 18px}
+.faq summary{cursor:pointer;font-weight:600;padding:16px 0;list-style:none;display:flex;justify-content:space-between;gap:12px}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";font-family:var(--mono);color:var(--accent);font-size:1.2rem;line-height:1}
+.faq details[open] summary::after{content:"\2212"}
+.faq details p{margin:0 0 16px;color:var(--muted)}
+.faq summary:focus-visible{outline:3px solid var(--buoy);outline-offset:2px;border-radius:4px}
+.faq-cta{margin:24px 0 0}
+/* ---- maritime details ---- */
+.herobg{position:relative;overflow:hidden}
+.herobg>.wrap{position:relative;z-index:1}
+canvas.chart{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.founder{position:relative;overflow:hidden}
+.founder>*:not(canvas){position:relative;z-index:1}
+section.block{border-top:0;position:relative}
+section.block::before{content:"";position:absolute;left:0;right:0;top:0;height:18px;background:var(--rope);
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='18' viewBox='0 0 44 18' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round'%3E%3Cpath d='M0 2H44'/%3E%3Cpath d='M22 2V10.5a3 3 0 1 1-3-3'/%3E%3C/svg%3E") repeat-x left top/44px 18px;
+          mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='18' viewBox='0 0 44 18' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round'%3E%3Cpath d='M0 2H44'/%3E%3Cpath d='M22 2V10.5a3 3 0 1 1-3-3'/%3E%3C/svg%3E") repeat-x left top/44px 18px}
+.slip{background:var(--panel)}
+</style>
+
+<div class="herobg"><canvas class="chart" data-chart="hero" aria-hidden="true"></canvas>
+<div class="wrap">
+  <header class="topbar">
+    <a class="brand" href="#top" id="top">
+      <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4v18"/><path d="M10 10h12"/><path d="M6 18c0 5 4.5 8 10 8s10-3 10-8"/><path d="M6 18l-2 2M26 18l2 2"/></svg>
+      CrewSettle <span class="pill">Private pilot</span>
+    </a>
+    <nav class="nav" aria-label="Page">
+      <a href="#how">How it works</a>
+      <a href="#pilot">Pilot</a>
+      <a href="#faq">FAQ</a>
+      <a href="#contact">Contact</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <div>
+      <p class="eyebrow">For small share-based fishing boats</p>
+      <h1>Turn fish tickets into crew settlements <em>&#x2014; without spreadsheets.</em></h1>
+      <p class="lead">Take a photo of each fish ticket and receipt, check the numbers, and send every crew member a clear settlement slip. Built for skippers, owners and bookkeepers on boats that pay crew by share.</p>
+      <div class="ctas">
+        <a class="btn primary" href="https://tally.so/r/WOxGYP" target="_blank" rel="noopener">Join the free pilot &#x2197;</a>
+        <a class="btn ghost" href="https://claude.ai/artifact/HuvpfqHvZ2GBdBNKoqR2ot" target="_blank" rel="noopener">Try the prototype &#x2197;</a>
+      </div>
+      <p class="status"><b>&#x25CF;</b><span>Working prototype. Accounts, storage and delivery are not live yet, and no real trip data is accepted until the data terms are published.</span></p>
+    </div>
+    <div class="slip" aria-label="Example settlement">
+      <span class="example">Example</span>
+      <h2>Trip settlement</h2>
+      <p class="meta">F/V Northern Reach &#xb7; Kodiak, AK &#xb7; 2 fish tickets</p>
+      <div class="wf"><span class="op"></span><span>Gross catch value</span><span class="n">$105,355.00</span></div>
+      <div class="wf"><span class="op">&#x2212;</span><span>Expenses before split</span><span class="n">$23,680.00</span></div>
+      <div class="wf t"><span class="op">=</span><span>Settlement basis</span><span class="n">$81,675.00</span></div>
+      <div class="wf"><span class="op">&#x2212;</span><span>Vessel/owner share (52%)</span><span class="n">$42,471.00</span></div>
+      <div class="wf t"><span class="op">=</span><span>Crew pool (48%)</span><span class="n">$39,204.00</span></div>
+      <div class="wf"><span class="op">&#xf7;</span><span>Total crew shares</span><span class="n">6.1</span></div>
+      <div class="wf hl"><span class="op">=</span><span>One share is worth</span><span class="n">$6,426.89</span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<section class="block" id="how">
+  <div class="wrap">
+    <h2 class="sec">How it works</h2>
+    <p class="sub">Three steps after every trip. The split and each man's shares are set up once from your crew agreement and remembered for the next trip.</p>
+    <ol class="steps">
+      <li><h3>Snap the paperwork</h3><p>Fish tickets, fuel and bait receipts, invoices and lost gear. The app reads species, pounds, prices and totals from the photo, or you type them in.</p></li>
+      <li><h3>Check the numbers</h3><p>Every scanned number is checked against the photo before it counts. The app flags possible duplicate expenses and reconciles everything to the cent.</p></li>
+      <li><h3>Send the slips</h3><p>The owner approves, and each crew member gets a slip showing his share, his deductions and the tickets and receipts behind it.</p></li>
+    </ol>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap two">
+    <div>
+      <h2 class="sec">Nothing hidden. For the crew or the skipper.</h2>
+      <p class="sub">Settlement disputes usually come from numbers nobody can see. Here, everyone can check the same thing.</p>
+      <ul class="checks">
+        <li><span><b>Every number has its paper.</b> Crew can open the fish ticket or receipt behind each line once the settlement is ready.</span></li>
+        <li><span><b>Changes are logged.</b> If an expense or a ticket changes after the settlement, the old and new amounts are shown. Nothing is changed quietly.</span></li>
+        <li><span><b>Personal deductions stay personal.</b> Advances, license and gear come off one man's pay, not the crew share.</span></li>
+        <li><span><b>An honest skipper has proof.</b> The same record that protects the crew protects the boat.</span></li>
+      </ul>
+    </div>
+    <div>
+      <h2 class="sec">What it handles</h2>
+      <ul class="checks">
+        <li><span>Several fish tickets and species per trip</span></li>
+        <li><span>Expenses charged before the split, to the owner only, to the crew only, or by your own percentage</span></li>
+        <li><span>Lost gear: groundline, anchors, buoy line, buoys</span></li>
+        <li><span>Full and partial shares, advances and personal deductions</span></li>
+        <li><span>Warnings for possible duplicate expenses</span></li>
+        <li><span>A year-end 1099 preparation report to review with your accountant. The app does not file with the IRS.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <h2 class="sec">Who it's for</h2>
+    <div class="cards">
+      <div><h3>Skippers</h3><p>Finish the settlement while the trip is fresh, from your phone, without rebuilding a spreadsheet.</p></div>
+      <div><h3>Owners</h3><p>Consistent records for every boat, and a clear view of how proceeds and expenses were split.</p></div>
+      <div><h3>Bookkeepers</h3><p>Organized inputs with the photos attached, documented calculations, and year-end numbers ready for 1099s.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="founder"><canvas class="chart" data-chart="founder" aria-hidden="true"></canvas>
+      <div class="years">15<small>years on autoline<br>longliners</small></div>
+      <div>
+        <h2>Built by a Norwegian longline fisherman</h2>
+        <p>I'm Thomas Brudvik. I've worked 15 years on autoline longliners, and I still go to sea on a six-weeks-on, six-weeks-off rotation. I know what a settlement looks like from the deck, and how much trust depends on it.</p>
+        <blockquote>The goal is simple: make the settlement easier to prepare, easier to check, and easier for the crew to understand.<cite>Thomas Brudvik, founder</cite></blockquote>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap two">
+    <div class="promise">
+      <h3>Your catch data stays yours</h3>
+      <ul class="checks">
+        <li><span>Never shared between boats, never sold, not even anonymized.</span></li>
+        <li><span>No fishing locations stored. The app doesn't need to know where you fish.</span></li>
+        <li><span>Crew see numbers only after the trip is landed and settled.</span></li>
+        <li><span>Export everything to a spreadsheet whenever you want.</span></li>
+        <li><span>Storage, deletion and data-handling terms will be published before any real trip data is accepted.</span></li>
+      </ul>
+    </div>
+    <div>
+      <h2 class="sec">Set up for your crew agreement</h2>
+      <p class="sub">Settlement rules differ from boat to boat. The split, how each expense is charged, and how shares are set must follow your own crew agreement, and the app is set up to match it. Tax questions belong with a qualified US accountant.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="pilot">
+  <div class="wrap two">
+    <div>
+      <h2 class="sec">Join the private pilot</h2>
+      <p class="sub">I'm looking for a few US boats to test the app on real settlements and tell me what doesn't fit.</p>
+      <div class="pilot-box">
+        <p class="price">Free during the pilot</p>
+        <p>Free through the pilot season. After that, founding boats pay <b>$25 a month</b> (or $250 a year), locked for as long as you stay. The regular price will be $40&#x2013;50. No automatic subscription, and you can stop at any time.</p>
+        <p class="spots"><b>5 boats this season.</b> I set up and follow every pilot boat myself, so I'm keeping the pilot small.</p>
+      </div>
+      <h3 style="margin:24px 0 10px">A good pilot boat</h3>
+      <ul class="checks">
+        <li><span>Pays crew by share of the catch or proceeds</span></li>
+        <li><span>Normally fewer than 10 crew</span></li>
+        <li><span>Does settlements today in Excel, accounting software or by hand</span></li>
+        <li><span>Will run one settlement in the app next to the usual method and compare</span></li>
+        <li><span>Can give honest feedback after one trip</span></li>
+      </ul>
+    </div>
+    <div>
+      <div class="applycard">
+        <h3>Apply in about two minutes</h3>
+        <p>A short form: your name, your boat, your home port, and how you do settlements today. I read every application myself and reply within 24&#x2013;48 hours.</p>
+        <a class="btn primary big" href="https://tally.so/r/WOxGYP" target="_blank" rel="noopener">Apply for the pilot &#x2197;</a>
+        <p class="hint">The form opens in a new tab. Rather talk first? Email <b>thomas@crewsettle.com</b> or <a href="https://wa.me/4745772218" target="_blank" rel="noopener">message me on WhatsApp</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="faq">
+  <div class="wrap">
+    <h2 class="sec">Questions skippers ask</h2>
+    <div class="faq">
+      <details><summary>What if the scan reads a number wrong?</summary><p>Every scanned number is shown next to the photo and has to be confirmed before it counts. You can correct anything, or type the ticket in by hand.</p></details>
+      <details><summary>Who sees my catch data?</summary><p>Only people on your boat that you invite: owner, skipper, bookkeeper and crew. Crew see their settlement after the trip is landed and settled. Data is never shared with other boats and never sold, and no fishing locations are stored.</p></details>
+      <details><summary>Do I have to change how we split the catch?</summary><p>No. The split, how each expense is charged, and each man's shares are set up to match your own crew agreement.</p></details>
+      <details><summary>Does it file my 1099s?</summary><p>No. It adds up each crew member's shares through the year and gives you a preparation report to review with your accountant, who files the forms.</p></details>
+      <details><summary>Does it work offline at sea?</summary><p>Not yet. Today you need a connection to add tickets and receipts. Offline use is planned, and pilot feedback decides how it should work.</p></details>
+      <details><summary>What does it cost after the pilot?</summary><p>The pilot is free through the pilot season. After that, founding pilot boats pay $25 a month (or $250 a year), locked for as long as they stay. The regular price will be around $40&#x2013;50 per boat per month. Nothing is charged without your agreement.</p></details>
+      <details><summary>What if I stop using it?</summary><p>You can export everything to a spreadsheet at any time. During the pilot there is no subscription to cancel.</p></details>
+    </div>
+    <p class="faq-cta"><a class="btn primary" href="https://tally.so/r/WOxGYP" target="_blank" rel="noopener">Apply for the pilot &#x2197;</a></p>
+  </div>
+</section>
+
+<section class="block" id="contact">
+  <div class="wrap">
+    <h2 class="sec">Questions? Get in touch.</h2>
+    <p class="sub">I'm in Norway and part of the time at sea, so I answer within 24&#x2013;48 hours. Email or WhatsApp works best.</p>
+    <div class="contact">
+      <div class="cc"><span class="k">Email</span><span class="v" id="c-email">thomas@crewsettle.com</span><button class="copy" data-copy="c-email">Copy email</button></div>
+      <div class="cc"><span class="k">Phone / WhatsApp</span><span class="v" id="c-phone">+47 457 72 218</span><div class="row"><button class="copy" data-copy="c-phone">Copy number</button><a class="copy" href="https://wa.me/4745772218" target="_blank" rel="noopener">Open WhatsApp</a></div></div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+  <footer>
+    <span>CrewSettle &#xb7; crew share settlement from fish tickets &#xb7; crewsettle.com &#xb7; Thomas Brudvik</span>
+    <span>Prototype only. Not payroll, tax or legal advice.</span>
+  </footer>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const TO="thomas@crewsettle.com";
+function copyText(text,btn){
+  const ok=()=>{if(!btn)return;const o=btn.textContent;btn.textContent="Copied";setTimeout(()=>btn.textContent=o,1500)};
+  const fb=()=>{const ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand("copy")}catch(_){}ta.remove();ok()};
+  try{navigator.clipboard.writeText(text).then(ok).catch(fb)}catch(_){fb()}
+}
+document.querySelectorAll("[data-copy]").forEach(b=>b.addEventListener("click",()=>copyText($(b.dataset.copy).textContent.trim(),b)));
+
+/* nautical-chart depth contours, drawn once per size/theme */
+function drawChart(cv){
+  const r=cv.getBoundingClientRect(),dpr=Math.min(2,window.devicePixelRatio||1);
+  if(!r.width||!r.height)return;
+  cv.width=Math.round(r.width*dpr);cv.height=Math.round(r.height*dpr);
+  const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,r.width,r.height);
+  const css=getComputedStyle(document.documentElement);
+  const founder=cv.dataset.chart==="founder";
+  const col=founder?"#9fc4c9":(css.getPropertyValue("--contour").trim()||"#8fb0b6");
+  let seed=founder?7:3;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
+  const W=r.width,H=r.height,n=founder?9:14;
+  g.strokeStyle=col;g.fillStyle=col;g.lineWidth=1;g.font="10px 'IBM Plex Mono', monospace";
+  const ph=[rnd()*6,rnd()*6,rnd()*6];
+  for(let i=0;i<n;i++){
+    const t=i/(n-1),base=H*(founder?0.1+t*0.95:0.05+t*1.05),amp=18+t*36;
+    g.globalAlpha=founder?0.10+0.06*(i%3===0):0.20+0.14*(i%3===0);
+    g.beginPath();
+    for(let x=-10;x<=W+10;x+=8){
+      const y=base+Math.sin(x/(180+i*9)+ph[0]+i*.35)*amp+Math.sin(x/(73+i*4)+ph[1])*amp*.28+Math.sin(x/410+ph[2])*amp*.6;
+      x<0?g.moveTo(x,y):g.lineTo(x,y);
+    }
+    g.stroke();
+    if(i%3===1&&!founder&&W>=760){
+      const lx=W*(0.6+((i*37)%32)/100),ly=base+Math.sin(lx/(180+i*9)+ph[0]+i*.35)*amp+Math.sin(lx/(73+i*4)+ph[1])*amp*.28+Math.sin(lx/410+ph[2])*amp*.6;
+      g.globalAlpha=0.55;g.fillText(String(20+i*10),lx,ly-4);
+    }
+  }
+  g.globalAlpha=1;
+}
+const charts=[...document.querySelectorAll("canvas.chart")];
+const redraw=()=>charts.forEach(drawChart);
+try{new ResizeObserver(redraw).observe(document.body)}catch(_){window.addEventListener("resize",redraw)}
+try{matchMedia("(prefers-color-scheme: dark)").addEventListener("change",redraw)}catch(_){}
+try{new MutationObserver(redraw).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]})}catch(_){}
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(redraw);
+redraw();
+</script>
