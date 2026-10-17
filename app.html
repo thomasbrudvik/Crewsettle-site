@@ -247,6 +247,9 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
   .gear .line{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 32px}
   .gear .line .g-item{grid-column:1 / 3}
   .gear .line .g-del{grid-column:3;grid-row:1}
+  .catch .line .c-lbs,.gear .line .g-qty,.gear .line .g-cost{grid-column:1}
+  .catch .line .c-price,.gear .line .g-unit,.gear .line .g-valc{grid-column:2}
+  .catch .line .c-valc{grid-column:1 / 3}
   .amts,.ye-totals{grid-template-columns:repeat(2,minmax(0,1fr))}
   .crew-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 32px}
   .crew-row .m-name{grid-column:1 / 3}
@@ -621,9 +624,9 @@ function renderLines(){
       ${t.lines.map((c,i)=>`
       <div class="line">
         ${cell("Species",`<input id="c-name-${ti}-${i}" data-k="line" data-t="${ti}" data-i="${i}" data-f="name" value="${esc(c.name)}">`,"c-name")}
-        ${cell("Weight (lb)",`<input id="c-lbs-${ti}-${i}" class="num" inputmode="decimal" data-k="line" data-t="${ti}" data-i="${i}" data-f="lbs" value="${c.lbs}">`)}
-        ${cell("Price per lb",`<input id="c-price-${ti}-${i}" class="num" inputmode="decimal" data-k="line" data-t="${ti}" data-i="${i}" data-f="price" value="${c.price}">`)}
-        <div class="cell"><span class="mlabel" style="text-align:right">Line value</span><span class="calc" id="c-val-${ti}-${i}"></span></div>
+        ${cell("Weight (lb)",`<input id="c-lbs-${ti}-${i}" class="num" inputmode="decimal" data-k="line" data-t="${ti}" data-i="${i}" data-f="lbs" value="${c.lbs}">`,"c-lbs")}
+        ${cell("Price per lb",`<input id="c-price-${ti}-${i}" class="num" inputmode="decimal" data-k="line" data-t="${ti}" data-i="${i}" data-f="price" value="${c.price}">`,"c-price")}
+        <div class="cell c-valc"><span class="mlabel" style="text-align:right">Line value</span><span class="calc" id="c-val-${ti}-${i}"></span></div>
         <button class="x c-del" data-del="line" data-t="${ti}" data-i="${i}" aria-label="Remove ${esc(c.name||"species")}">\u00d7</button>
       </div>`).join("")}
       <div class="row-head"><button class="add small" data-addline="${ti}">+ Add species</button><button class="tedit" data-tedit="${ti}">Done</button></div>`
@@ -665,10 +668,10 @@ function renderLines(){
     <div class="exp-item gear-item">
       <div class="line">
         ${cell("Item",`<input id="g-item-${i}" list="gearItems" data-k="gear" data-i="${i}" data-f="item" value="${esc(g.item)}">`,"g-item")}
-        ${cell("Qty",`<input id="g-qty-${i}" class="num" inputmode="decimal" data-k="gear" data-i="${i}" data-f="qty" value="${g.qty}">`)}
-        ${cell("Unit",`<input id="g-unit-${i}" list="gearUnits" data-k="gear" data-i="${i}" data-f="unit" value="${esc(g.unit)}">`)}
-        ${cell("Cost per unit",`<input id="g-cost-${i}" class="num" inputmode="decimal" data-k="gear" data-i="${i}" data-f="cost" value="${g.cost}">`)}
-        <div class="cell"><span class="mlabel" style="text-align:right">Value</span><span class="calc" id="g-val-${i}"></span></div>
+        ${cell("Qty",`<input id="g-qty-${i}" class="num" inputmode="decimal" data-k="gear" data-i="${i}" data-f="qty" value="${g.qty}">`,"g-qty")}
+        ${cell("Unit",`<input id="g-unit-${i}" list="gearUnits" data-k="gear" data-i="${i}" data-f="unit" value="${esc(g.unit)}" placeholder="each">`,"g-unit")}
+        ${cell("Cost per unit",`<input id="g-cost-${i}" class="num" inputmode="decimal" data-k="gear" data-i="${i}" data-f="cost" value="${g.cost}">`,"g-cost")}
+        <div class="cell g-valc"><span class="mlabel" style="text-align:right">Value</span><span class="calc" id="g-val-${i}"></span></div>
         <button class="x g-del" data-del="gear" data-i="${i}" aria-label="Remove ${esc(g.item||"gear")}">\u00d7</button>
       </div>
       <div class="charge">
