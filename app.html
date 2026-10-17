@@ -221,6 +221,7 @@ details summary{cursor:pointer;font-size:.85rem;color:var(--accent);font-weight:
 .tline .nm{font-weight:600}
 .tline .calc2{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:.88rem;color:var(--muted);white-space:nowrap}
 .tline .calc2 b{color:var(--ink);font-weight:600}
+.tline .calc2 b.noprice{color:var(--neg)}
 .tlines{display:grid}
 .ticket-head .tlabel{font-weight:600;overflow-wrap:break-word;min-width:0}
 .tedit{border:1px solid var(--line);background:var(--panel);color:var(--accent);font-weight:600;padding:4px 12px;font-size:.82rem}
@@ -640,7 +641,7 @@ function renderLines(){
         <button class="x c-del" data-del="line" data-t="${ti}" data-i="${i}" aria-label="Remove ${esc(c.name||"species")}">\u00d7</button>
       </div>`).join("")}
       <div class="row-head"><button class="add small" data-addline="${ti}">+ Add species</button><button class="tedit" data-tedit="${ti}">Done</button></div>`
-      :`<div class="tlines">${t.lines.map(c=>`<div class="tline"><span class="nm">${esc(c.name||"Unnamed species")}</span><span class="calc2">${num(c.lbs).toLocaleString("en-US")} lb \u00d7 $${num(c.price).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:4})} = <b>${fmtC(lineC(c))}</b></span></div>`).join("")||`<p class="hint">No species yet. Tap Edit to add them.</p>`}</div>`}
+      :`<div class="tlines">${t.lines.map(c=>`<div class="tline"><span class="nm">${esc(c.name||"Unnamed species")}</span><span class="calc2">${num(c.lbs).toLocaleString("en-US")} lb \u00d7 ${num(c.price)>0?`$${num(c.price).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:4})} = <b>${fmtC(lineC(c))}</b>`:`<b class="noprice">price missing</b>`}</span></div>`).join("")||`<p class="hint">No species yet. Tap Edit to add them.</p>`}</div>`}
     </div>`}).join(""):`<p class="hint">No fish tickets yet. Scan the first one or type it in.</p>`;
   $("expLines").innerHTML=state.exp.length?state.exp.map((e,i)=>{const open=ui.expOpen.has(i);return `
     <div class="exp-item compact">
@@ -1161,13 +1162,13 @@ function fallback(text){const ta=document.createElement("textarea");ta.value=tex
 /* ---- scanning with Claude ---- */
 let sample=null, maxImgs=1;
 const busy={ticket:null,receipt:null};
-const TICKET_PROMPT=`The image(s) show one US commercial fishing fish ticket (a landing receipt or settlement from a seafood buyer). Several images are pages of the same ticket.
+const TICKET_PROMPT=`The image(s) show one US commercial fishing fish ticket (a landing receipt, an ADF&G fish ticket or eLandings ticket, or a settlement from a seafood buyer). Several images are pages of the same ticket.
 Read it and reply with only this JSON:
 {"ticket_number": string or null, "buyer": string or null, "date": string or null,
- "lines": [{"species": string, "pounds": number, "price_per_lb": number}],
+ "lines": [{"species": string, "pounds": number, "price_per_lb": number or null}],
  "deductions": [{"description": string, "amount": number}],
  "readable": true or false, "note": string or null}
-Rules: one entry in "lines" per species/grade line that is paid for. "pounds" is the paid weight in pounds; if the ticket shows kilograms, convert to pounds (1 kg = 2.20462 lb). "price_per_lb" is the price paid per pound in US dollars; if only a line total is shown, divide it by the pounds. Leave out lines with no payment (discards, personal use). Put amounts the buyer took off the ticket (taxes, assessments, ice, bait, fuel, advances) in "deductions" as positive numbers. Never guess a number you cannot read: leave that line out and say so in "note". If this is not a fish ticket, set "readable" to false and explain in "note".`;
+Rules: one entry in "lines" per species/grade line that was sold. "species" is the plain species name without the numeric species code, with the product condition in brackets when it is not whole/round, for example "Sablefish (cut)" for "710 Sablefish, 08 Est cut", or "Longnose skate (wings)". "pounds" is the weight on that line that the buyer pays on (the scale, sold or landed weight on the line), not a round-weight figure from a summary elsewhere on the ticket; if the ticket shows kilograms, convert to pounds (1 kg = 2.20462 lb). "price_per_lb" is the price paid per pound in US dollars; if only a line amount is shown, divide it by the pounds. Many ADF&G tickets have no prices because the buyer pays later: then set "price_per_lb" to null and keep the line. Leave out lines that were not sold (discards, personal use, confiscated, research). Put amounts the buyer took off the ticket (taxes, assessments, ice, bait, fuel, advances) in "deductions" as positive numbers; leave out empty tax boxes. Never guess a number you cannot read: leave that line out and say so in "note". If this is not a fish ticket, set "readable" to false and explain in "note".`;
 const RECEIPT_PROMPT=`The image(s) show one receipt or invoice for a commercial fishing trip. Several images are pages of the same document.
 Read it and reply with only this JSON:
 {"vendor": string or null, "date": string or null, "total": number or null,
@@ -1203,14 +1204,15 @@ async function scan(kind,files){
     const d=await sample.json(kind==="ticket"?TICKET_PROMPT:RECEIPT_PROMPT,{images:list,signal:ctl.signal});
     if(!d||d.readable===false) throw {code:"unreadable",note:d?.note};
     if(kind==="ticket"){
-      const lines=(Array.isArray(d.lines)?d.lines:[]).map(l=>({name:String(l.species||"Unknown species"),lbs:+num(l.pounds).toFixed(2),price:+num(l.price_per_lb).toFixed(4)})).filter(l=>l.lbs>0);
+      const lines=(Array.isArray(d.lines)?d.lines:[]).map(l=>({name:String(l.species||"Unknown species"),lbs:+num(l.pounds).toFixed(2),price:l.price_per_lb==null||num(l.price_per_lb)<=0?"":+num(l.price_per_lb).toFixed(4)})).filter(l=>l.lbs>0);
+      const noPrice=lines.filter(l=>l.price==="").length;
       if(!lines.length) throw {code:"unreadable",note:d.note||"No paid species lines were found."};
       const label=[d.ticket_number?`Ticket #${d.ticket_number}`:`Fish ticket ${state.tickets.length+1}`,d.buyer,d.date].filter(Boolean).join(" \u00b7 ");
       state.tickets.push({label:d.buyer?String(d.buyer):"",no:d.ticket_number?String(d.ticket_number):"",date:toISO(d.date)||todayISO(),status:"scanned",photos:urls,lines});
       const deds=(Array.isArray(d.deductions)?d.deductions:[]).filter(x=>num(x.amount)>0);
       deds.forEach(x=>state.exp.push({src:d.ticket_number?"#"+d.ticket_number:label,name:`${String(x.description||"Ticket deduction")} (${d.ticket_number?"#"+d.ticket_number:"fish ticket"})`,amt:+num(x.amount).toFixed(2),to:"shared",crewPct:50,status:"scanned",photos:urls}));
       const v=lines.reduce((s,l)=>s+lineC(l),0);
-      setStatus(kind,`Added ${esc(label)}: ${lines.length} ${lines.length===1?"line":"lines"}, ${fmtC(v)}${deds.length?`, plus ${deds.length} ticket ${deds.length===1?"deduction":"deductions"} under Trip expenses`:""}. Check the numbers against the photo.${d.note?" Note: "+esc(d.note):""}`,"ok");
+      setStatus(kind,`Added ${esc(label)}: ${lines.length} ${lines.length===1?"line":"lines"}, ${fmtC(v)}${deds.length?`, plus ${deds.length} ticket ${deds.length===1?"deduction":"deductions"} under Trip expenses`:""}. ${noPrice?` <strong>${noPrice===lines.length?"The ticket has no prices":noPrice+" of the lines have no price"}. Tap Edit and type in the price per lb from the buyer's settlement when you get it.</strong>`:""} Check the numbers against the photo.${d.note?" Note: "+esc(d.note):""}`,noPrice?"err":"ok");
     } else {
       const vend=d.vendor?String(d.vendor):"";
       let rows=(Array.isArray(d.lines)?d.lines:[]).filter(l=>l&&l.amount!=null&&num(l.amount)!==0);
