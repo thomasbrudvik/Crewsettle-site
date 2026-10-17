@@ -513,7 +513,9 @@ const ye={sent:null,open:new Set()};
 document.addEventListener("toggle",e=>{const d=e.target;if(d.dataset&&d.dataset.open!==undefined){d.open?ye.open.add(+d.dataset.open):ye.open.delete(+d.dataset.open)}},true);
 
 /* ---- settlement core: whole cents throughout ---- */
-const num=v=>{const n=parseFloat(String(v).replace(/[^0-9.\-]/g,""));return isFinite(n)?n:0};
+const num=v=>{let t=String(v??"").trim().replace(/[\s$]/g,"");
+  if(t.includes(",")){t=(t.includes(".")||/^-?[1-9]\d{0,2}(,\d{3})+$/.test(t))?t.replace(/,/g,""):t.replace(",",".")}
+  const n=parseFloat(t.replace(/[^0-9.\-]/g,""));return isFinite(n)?n:0};
 const cents=v=>Math.round(num(v)*100);
 function settle(catchRows,expRows,crew,crewPctRaw){
   const lineCents=catchRows.map(c=>Math.round(num(c.lbs)*num(c.price)*100));
@@ -594,13 +596,14 @@ const metaFor=(o,kind,idx)=>{
 const ROLES=["Captain","Chief mate","Mate","Engineer","Cook","Deckhand","Greenhorn"];
 const EXPENSES=["Fuel","Bait","Ice","Groceries","Lube oil","Observer fee","Landing fees","Gear & supplies"];
 function pickOpts(list,v,ph){
-  v=v||"";
+  v=v||"";const ci=list.find(x=>x.toLowerCase()===v.toLowerCase());if(ci)v=ci;
   const custom=v&&!list.includes(v)?[v]:[];
   return (v?"":`<option value="" selected disabled>${ph}</option>`)+
     [...list,...custom].map(x=>`<option${x===v?" selected":""}>${esc(x)}</option>`).join("")+
     '<option value="__other">Other\u2026</option>';
 }
 const roleOpts=r=>pickOpts(ROLES,r,"Choose role");
+const UNITS=["each","skates","lines","hooks","fathoms","coils"];
 const SHARES=[2,1.5,1.25,1,0.75,0.5];
 function shareOpts(v){
   const n=num(v),list=SHARES.includes(n)?SHARES:[...SHARES,n].sort((a,b)=>b-a);
@@ -669,7 +672,7 @@ function renderLines(){
       <div class="line">
         ${cell("Item",`<input id="g-item-${i}" list="gearItems" data-k="gear" data-i="${i}" data-f="item" value="${esc(g.item)}">`,"g-item")}
         ${cell("Qty",`<input id="g-qty-${i}" class="num" inputmode="decimal" data-k="gear" data-i="${i}" data-f="qty" value="${g.qty}">`,"g-qty")}
-        ${cell("Unit",`<input id="g-unit-${i}" list="gearUnits" data-k="gear" data-i="${i}" data-f="unit" value="${esc(g.unit)}" placeholder="each">`,"g-unit")}
+        ${cell("Unit",`<select id="g-unit-${i}" data-unitsel="${i}">${pickOpts(UNITS,g.unit,"Choose")}</select>`,"g-unit")}
         ${cell("Cost per unit",`<input id="g-cost-${i}" class="num" inputmode="decimal" data-k="gear" data-i="${i}" data-f="cost" value="${g.cost}">`,"g-cost")}
         <div class="cell g-valc"><span class="mlabel" style="text-align:right">Value</span><span class="calc" id="g-val-${i}"></span></div>
         <button class="x g-del" data-del="gear" data-i="${i}" aria-label="Remove ${esc(g.item||"gear")}">\u00d7</button>
@@ -760,7 +763,7 @@ function renderResults(){
   state.exp.forEach((e,i)=>{const el=$("e-vpct-"+i);if(el)el.textContent=pctTxt(100-Math.min(100,Math.max(0,num(e.crewPct))))});
   let gearTot=0;
   state.gear.forEach((g,i)=>{const v=gearC(g);gearTot+=v;$("g-val-"+i).textContent=fmtC(v);const el=$("g-vpct-"+i);if(el)el.textContent=pctTxt(100-Math.min(100,Math.max(0,num(g.crewPct))))});
-  $("gearTop").textContent=fmtC(-gearTot);
+  $("gearTop").textContent=fmtC(gearTot);
   r.people.forEach((p,i)=>{$("m-ded-"+i).textContent=p.ded?fmtC(-p.ded):"\u2014"});
   $("vesselPct").textContent=pctTxt(100-r.pct);
   $("grossTop").textContent=fmtC(r.gross);
@@ -1085,6 +1088,11 @@ document.addEventListener("change",e=>{
     const c=state.crew[+t.dataset.sharesel],id=t.id;
     if(t.value==="__other"){const r=prompt("Shares for this person (for example 1.2)",String(c.share??1));const v=r==null?NaN:parseFloat(String(r).replace(",","."));if(isFinite(v)&&v>=0&&v<=10)c.share=Math.round(v*1000)/1000;else if(r!=null)alert("Type a number between 0 and 10, for example 1.2")}
     else c.share=+t.value;
+    renderLines();renderResults();const el=$(id);if(el)el.focus();return}
+  if(t.tagName==="SELECT"&&t.dataset.unitsel!==undefined){
+    const g=state.gear[+t.dataset.unitsel],id=t.id;
+    if(t.value==="__other"){const r=prompt("Unit (for example tubs, boxes)",UNITS.includes(g.unit)?"":g.unit||"");if(r&&r.trim())g.unit=r.trim().slice(0,20)}
+    else g.unit=t.value;
     renderLines();renderResults();const el=$(id);if(el)el.focus();return}
   if(t.tagName==="SELECT"&&t.dataset.rolesel!==undefined){
     const c=state.crew[+t.dataset.rolesel],id=t.id;
