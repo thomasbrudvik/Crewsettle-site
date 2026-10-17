@@ -587,6 +587,14 @@ const metaFor=(o,kind,idx)=>{
   return `<div class="meta"><span class="badge ${cls}">${txt}</span>${thumbs(o.photos||[])}${o.status==="scanned"?`<button class="confirm" data-confirm="${kind}" data-i="${idx}">Numbers match photo</button>`:""}</div>`;
 };
 
+const ROLES=["Captain","Chief mate","Mate","Engineer","Cook","Deckhand","Greenhorn"];
+function roleOpts(r){
+  r=r||"";
+  const custom=r&&!ROLES.includes(r)?[r]:[];
+  return (r?"":'<option value="" selected disabled>Choose role</option>')+
+    [...ROLES,...custom].map(x=>`<option${x===r?" selected":""}>${esc(x)}</option>`).join("")+
+    '<option value="__other">Other\u2026</option>';
+}
 function renderLines(){
   let lastDate=null;
   $("ticketList").innerHTML=state.tickets.length?ticketOrder().map(ti=>{const t=state.tickets[ti];const open=ui.tOpen.has(ti);
@@ -670,7 +678,7 @@ function renderLines(){
     <div class="member">
       <div class="line crew-row">
         ${cell("Name",`<input id="m-name-${i}" data-k="crew" data-i="${i}" data-f="name" value="${esc(c.name)}">`,"m-name")}
-        ${cell("Role",`<input id="m-role-${i}" data-k="crew" data-i="${i}" data-f="role" value="${esc(c.role)}">`)}
+        ${cell("Role",`<select id="m-role-${i}" data-rolesel="${i}">${roleOpts(c.role)}</select>`)}
         ${cell("Shares",`<input id="m-share-${i}" class="num" inputmode="decimal" data-k="crew" data-i="${i}" data-f="share" value="${c.share}">`)}
         <div class="cell m-dedc"><span class="mlabel" style="text-align:right">Personal deductions</span><span class="calc" id="m-ded-${i}"></span></div>
         <button class="x m-del" data-del="crew" data-i="${i}" aria-label="Remove ${esc(c.name||"crew member")}">\u00d7</button>
@@ -1053,6 +1061,11 @@ document.addEventListener("change",e=>{
   if(t.id==="exOpen"){const f=t.files[0];t.value="";if(f)openSeason(f);return}
   if(t.id==="qbFull"){$("qbFullBox").hidden=!t.checked;return}
   if(t.id==="scanTicket"||t.id==="scanReceipt"){const files=[...t.files];t.value="";scan(t.id==="scanTicket"?"ticket":"receipt",files);return}
+  if(t.tagName==="SELECT"&&t.dataset.rolesel!==undefined){
+    const c=state.crew[+t.dataset.rolesel],id=t.id;
+    if(t.value==="__other"){const r=prompt("Role name (for example Skipper, Engineer, Relief)",ROLES.includes(c.role)?"":c.role||"");if(r&&r.trim())c.role=r.trim().slice(0,40)}
+    else c.role=t.value;
+    renderLines();renderResults();const el=$(id);if(el)el.focus();return}
   if(t.tagName==="SELECT"&&t.dataset.ded!==undefined){state.crew[+t.dataset.ded].deds[+t.dataset.j].type=t.value;renderResults()}
   if(t.tagName==="SELECT"&&t.dataset.f==="to"){state[t.dataset.k][+t.dataset.i].to=t.value;const id=t.id;renderLines();renderResults();const el=$(id);if(el)el.focus()}
 });
