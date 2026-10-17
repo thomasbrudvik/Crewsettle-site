@@ -326,7 +326,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
 
   <section data-pane="tickets" class="catch">
     <div class="row-head"><h2>Fish tickets</h2><span class="sum" id="grossTop"></span></div>
-    <p class="hint">Add each fish ticket as it comes in, whether you land once a trip or every few days with fresh fish. The settlement updates after every ticket.</p>
+    <p class="hint">Photograph or type in each fish ticket as it comes in, whether you land once a trip or every few days with fresh fish. The settlement updates after every ticket. Always check scanned numbers against the photo.</p>
     <p class="ticketsum" id="ticketSum"></p>
     <div class="scanbar">
       <label class="scan" id="scanTicketBtn" hidden>
@@ -358,7 +358,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
       <button class="add" id="addExp">+ Type in an expense</button>
     </div>
     <p class="status" id="receiptStatus" hidden></p>
-    <p class="hint" id="scanOff" hidden>Photo scanning of fish tickets and receipts is coming soon. For now, type the numbers in.</p>
+    <p class="hint" id="scanOff" hidden>Sign in to scan fish tickets and receipts. You can always type the numbers in.</p>
     <div class="lines" id="expLines"></div>
     <datalist id="expUnits"><option value="lb"><option value="kg"><option value="gal"><option value="liters"><option value="boxes"><option value="each"></datalist>
   </section>
@@ -1175,10 +1175,12 @@ function setStatus(kind,html,cls=""){
 const ERR={
   not_granted:"Scanning was not allowed. You can still type the numbers in.",
   rate_limited:"Too many scans right now. Try again in a little while.",
-  session_expired:"Sign in to Claude again, then try the scan again.",
+  session_expired:"Your sign-in has expired. Sign out, sign in again, and try the scan again.",
+  not_configured:"Photo scanning is not switched on yet. Type the numbers in for now.",
+  network:"No connection. Check the signal and try again, or type the numbers in.",
   image_rejected:"That photo could not be used. Try a JPEG or PNG photo that is not too large.",
-  refused:"Claude could not read this document. Type the numbers in instead.",
-  invalid_json:"Claude could not read the numbers clearly. Try a sharper photo, or type them in.",
+  refused:"This document could not be read. Type the numbers in instead.",
+  invalid_json:"The numbers could not be read clearly. Try a sharper photo, or type them in.",
   images_unavailable:"Photo scanning is not available here. Type the numbers in instead."
 };
 async function scan(kind,files){
@@ -1221,18 +1223,31 @@ async function scan(kind,files){
 function scanUI(on){
   $("scanTicketBtn").hidden=!on; $("scanReceiptBtn").hidden=!on; $("scanOff").hidden=on;
 }
-(async()=>{
-  try{
-    sample=window.claude?.use?await claude.use("sample"):null;
-    const lim=sample?await sample.limits().catch(()=>null):null;
-    if(lim?.images){
-      maxImgs=lim.images.maxCount||1;
-      const acc=(lim.images.mediaTypes||[]).join(",");
-      if(acc){$("scanTicket").accept=acc;$("scanReceipt").accept=acc}
-      scanUI(true);
-    } else scanUI(false);
-  }catch(_){scanUI(false)}
-})();
+/* scanning on crewsettle.com goes through our own Supabase function */
+async function toJpeg(file){
+  const img=await new Promise((res,rej)=>{const u=URL.createObjectURL(file),i=new Image();i.onload=()=>{URL.revokeObjectURL(u);res(i)};i.onerror=()=>{URL.revokeObjectURL(u);rej({code:"image_rejected"})};i.src=u});
+  const max=2000,sc=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));
+  const c=document.createElement("canvas");c.width=Math.round(img.naturalWidth*sc);c.height=Math.round(img.naturalHeight*sc);
+  c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+  return {media_type:"image/jpeg",data:c.toDataURL("image/jpeg",0.85).split(",")[1]};
+}
+const scanAdapter={
+  async json(prompt,{images,signal}){
+    const kind=prompt===TICKET_PROMPT?"ticket":"receipt";
+    const imgs=[];for(const f of images)imgs.push(await toJpeg(f));
+    const {data:{session}}=await cs.db.auth.getSession();
+    if(!session)throw{code:"session_expired"};
+    let r;
+    try{
+      r=await fetch(CS_URL+"/functions/v1/scan",{method:"POST",signal,headers:{"Content-Type":"application/json",apikey:CS_KEY,Authorization:"Bearer "+session.access_token},body:JSON.stringify({kind,images:imgs})});
+    }catch(e){if(e&&e.name==="AbortError")throw{code:"cancelled"};throw{code:"network"}}
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok)throw{code:j.error||("http_"+r.status)};
+    return j.result;
+  }
+};
+scanUI(false);
+$("scanTicket").accept="image/*";$("scanReceipt").accept="image/*";
 
 
 
@@ -1337,6 +1352,7 @@ document.addEventListener("input",()=>scheduleSave(),true);
 window.addEventListener("beforeunload",e=>{if(cs.boat&&!cs.saving){const d=seasonData();if(JSON.stringify(d.state)+JSON.stringify(d.fields)!==cs.lastJson){saveCloud();e.preventDefault();e.returnValue=""}}});
 async function onSignedIn(user){
   cs.user=user;
+  sample=scanAdapter;maxImgs=4;scanUI(true);
   try{await loadBoat()}catch(e){g("gate").hidden=false;gStep("Email");gMsg("Could not load your vessel. Check your connection and reload the page.","err")}
 }
 (async function(){
