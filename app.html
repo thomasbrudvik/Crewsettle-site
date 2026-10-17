@@ -1,0 +1,1337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta charset="utf-8">
+<title>CrewSettle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script>
+(function(){var h=location.hash||"";if(/access_token=|error_description=/.test(h)){window.__csAuthHash=h.slice(1);try{history.replaceState(null,"",location.pathname+location.search)}catch(_){}}})();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0"></script>
+<style>
+/* Layout: a single-column wheelhouse ledger \002014 trip, catch, expenses, split, crew, pay slips, reconciliation */
+:root{
+  --bg:#eef2f4; --panel:#ffffff; --ink:#15212b; --muted:#5b6b77; --line:#d3dce2;
+  --accent:#0f6b73; --accent-soft:#dcecec; --neg:#a6392b; --field:#f6f9fa; --ok:#2e7d4f; --warn:#9a6700;
+  --display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d1419; --panel:#152029; --ink:#e3ebef; --muted:#93a4af; --line:#27353f;
+  --accent:#4fb3b8; --accent-soft:#16333a; --neg:#e07a6b; --field:#0f181e; --ok:#6cc392; --warn:#e0b44f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d1419; --panel:#152029; --ink:#e3ebef; --muted:#93a4af; --line:#27353f;
+  --accent:#4fb3b8; --accent-soft:#16333a; --neg:#e07a6b; --field:#0f181e; --ok:#6cc392; --warn:#e0b44f; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:780px;margin:0 auto;padding-inline:16px;padding-block:20px 48px;display:grid;gap:18px}
+header h1{font-family:var(--display);font-weight:700;font-size:2.2rem;letter-spacing:.01em;line-height:1;margin:0;text-wrap:balance}
+header p{margin:.4rem 0 0;color:var(--muted);max-width:62ch}
+.tag{display:inline-block;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:.4rem}
+.notice{border:1px solid var(--line);border-left:3px solid var(--accent);background:var(--panel);border-radius:6px;padding:10px 12px;font-size:.88rem;margin:0}
+section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:12px;min-width:0}
+h2{font-family:var(--display);font-weight:600;font-size:1.35rem;margin:0;letter-spacing:.02em;text-transform:uppercase}
+.row-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.sum{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:500;white-space:nowrap}
+.hint{color:var(--muted);font-size:.85rem;margin:0}
+.trip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+label,.lbl{display:grid;gap:3px;font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;min-width:0}
+input,select{font:inherit;font-size:.95rem;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%;min-width:0;text-transform:none;letter-spacing:0}
+input.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.lines{display:grid;gap:8px}
+.line{display:grid;gap:8px;align-items:end}
+.cell{display:grid;gap:3px;min-width:0}
+.mlabel{display:none;font-size:.68rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.catch .line{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,1.1fr) 32px}
+.exp .line{grid-template-columns:minmax(0,1.6fr) minmax(0,.9fr) minmax(0,1.2fr) 32px}
+.exp-item{display:grid;gap:6px}
+.exp .exp-item{border-bottom:1px dashed var(--line);padding-bottom:8px}
+.qty-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:.8rem}
+.qty-row label.inline{display:flex;align-items:center;gap:6px;font-size:.75rem}
+.qty-row input{width:7.5em;padding:4px 7px;font-size:.85rem}
+.unitp{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--muted);font-size:.82rem}
+.gear .line{grid-template-columns:minmax(0,1.4fr) minmax(0,.55fr) minmax(0,.8fr) minmax(0,.85fr) minmax(0,.9fr) 32px}
+.gear-item{border-bottom:1px dashed var(--line);padding-bottom:8px}
+.charge{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.charge label.inline{display:flex;align-items:center;gap:8px;font-size:.8rem}
+.charge select{width:auto}
+.charge .custom-split{padding-left:10px}
+.custom-split{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.85rem;color:var(--muted);padding-left:12px;border-left:2px solid var(--accent)}
+.custom-split label.inline{display:flex;align-items:center;gap:8px;font-size:.85rem;letter-spacing:0;text-transform:none;font-weight:400}
+.custom-split input{width:5.5em}
+.custom-split b{color:var(--ink);font-family:var(--mono);font-weight:500}
+.crew-row{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,.6fr) minmax(0,1fr) 32px}
+.colhead{font-size:.7rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600;align-items:end}
+.colhead .r{text-align:right}
+.calc{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;font-size:.9rem;overflow-wrap:anywhere;padding-block:8px}
+button{font:inherit;cursor:pointer;border-radius:6px}
+.x{border:1px solid transparent;background:none;color:var(--muted);width:32px;height:36px;font-size:1.1rem;line-height:1}
+.x:hover{color:var(--neg);border-color:var(--line)}
+.add{justify-self:start;border:1px dashed var(--line);background:none;color:var(--accent);padding:6px 12px;font-weight:600;font-size:.85rem}
+.add:hover{border-color:var(--accent)}
+.add.small{padding:3px 9px;font-size:.78rem}
+.member{border:1px solid var(--line);border-radius:8px;padding:10px;display:grid;gap:8px;background:var(--field)}
+.member input,.member select{background:var(--panel)}
+.deds{display:grid;gap:6px;padding-left:12px;border-left:2px solid var(--line)}
+.ded{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 32px;gap:8px;align-items:center}
+.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.readout{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:.95rem;color:var(--ink);background:none;border:1px dashed var(--line);border-radius:6px;padding:7px 9px;text-align:right;text-transform:none;letter-spacing:0;font-weight:500}
+.waterfall{display:grid;border-top:1px solid var(--line)}
+.wf{display:grid;grid-template-columns:1.4em minmax(0,1fr) auto;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:.95rem;align-items:baseline}
+.wf .op{font-family:var(--mono);color:var(--muted);text-align:center}
+.wf .sum.neg{color:var(--neg)}
+.wf.total{font-weight:600}
+.wf.hl{background:var(--accent-soft);margin:0 -16px;padding:10px 16px;border-bottom:none}
+.wf.hl .sum{color:var(--accent);font-size:1.05rem}
+.wf small{display:block;color:var(--muted);font-weight:400;font-size:.78rem}
+.slips{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.slip{border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:grid;gap:4px;background:var(--field);min-width:0;align-content:start}
+.slip h3{font-family:var(--display);font-weight:600;font-size:1.2rem;margin:0;letter-spacing:.02em}
+.slip .role{color:var(--muted);font-size:.8rem;margin-top:-4px}
+.slip .l{display:flex;justify-content:space-between;gap:8px;font-size:.85rem}
+.slip .l .sum.neg{color:var(--neg)}
+.slip .pay{border-top:1px solid var(--line);margin-top:4px;padding-top:6px;font-weight:600}
+.slip .pay .sum{font-size:1.15rem;color:var(--accent)}
+.slip .pay .sum.neg{color:var(--neg)}
+.copy{justify-self:start;margin-top:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:5px 10px;font-size:.8rem}
+.copy:hover{border-color:var(--accent)}
+.warn{color:var(--neg);font-size:.85rem;margin:0}
+.recon{display:grid;border-top:1px solid var(--line)}
+.rc{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line);font-size:.92rem}
+.rc.total{font-weight:600}
+.rc .sum.neg{color:var(--neg)}
+.check{display:flex;gap:8px;align-items:baseline;font-size:.88rem;margin:0}
+.check b{color:var(--ok)}
+.check.bad b{color:var(--neg)}
+.sub{font-family:var(--display);font-weight:600;font-size:1.05rem;letter-spacing:.03em;text-transform:uppercase;margin:6px 0 0;color:var(--muted)}
+.notice.demo{border-left-color:var(--neg)}
+.elig{display:grid;gap:4px;justify-items:start}
+.ye-row{display:grid;gap:8px;padding-block:12px;border-bottom:1px solid var(--line)}
+.ye-head{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:flex-start;justify-content:space-between}
+.ye-row .who b{display:block;font-weight:600}
+.ye-row .who span{font-size:.8rem;color:var(--muted)}
+.tinbox{display:grid;gap:2px;justify-items:start;font-size:.8rem}
+.tin{font-family:var(--mono);font-size:.85rem}
+.tstat{font-weight:600}
+.tstat.ok{color:var(--ok)}.tstat.bad{color:var(--neg)}.tstat.warn{color:var(--warn)}
+.w9{margin-top:2px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:2px 8px;font-size:.75rem}
+.warn.small{font-size:.8rem}
+.amts,.ye-totals{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.amt{display:grid;gap:2px;align-content:start;background:var(--field);border:1px solid var(--line);border-radius:6px;padding:6px 8px;min-width:0}
+.amt span{font-size:.68rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.amt b{font-weight:500;font-size:.92rem;overflow-wrap:anywhere;white-space:normal}
+.amt.box5{border-color:var(--accent);background:var(--accent-soft)}
+.amt.box5 b{font-weight:600;color:var(--accent)}
+.ye-totals{padding-top:4px}
+details summary{cursor:pointer;font-size:.85rem;color:var(--accent);font-weight:600}
+.trips{display:grid;margin-top:6px;border-top:1px solid var(--line)}
+.tr{display:flex;justify-content:space-between;gap:10px;font-size:.85rem;padding:4px 0;border-bottom:1px dashed var(--line)}
+.tr.cur{font-weight:600}.tr.tot{font-weight:600;border-bottom-style:solid}
+.corr{border:1px solid var(--neg);border-radius:6px;padding:8px 10px;display:grid;gap:6px;justify-items:start;font-size:.85rem}
+.corr p{margin:0}
+.stps{display:flex;flex-wrap:wrap;gap:6px}
+.stp{font-size:.72rem;padding:2px 8px;border-radius:4px;border:1px dashed var(--line);color:var(--muted)}
+.stp.on{border-style:solid;border-color:var(--ok);color:var(--ok);font-weight:600}
+.stp.bad{border-style:solid;border-color:var(--neg);color:var(--neg);font-weight:600}
+.acts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.acts:empty{display:none}
+.cmp{display:grid;grid-template-columns:auto auto;gap:2px 14px;justify-content:start}
+.cmp span{color:var(--muted)}
+.report{white-space:pre;overflow-x:auto;font-family:var(--mono);font-size:.78rem;background:var(--field);border:1px solid var(--line);border-radius:8px;padding:12px;margin:0;max-width:100%}
+.log{margin-top:6px;font-size:.78rem;color:var(--muted);display:grid;gap:2px}
+.log b{color:var(--ink);font-size:.8rem}
+.ye-steps{display:flex;flex-wrap:wrap;gap:10px}
+.step{border:1px solid var(--accent);background:var(--panel);color:var(--accent);padding:9px 14px;font-weight:600;font-size:.9rem}
+.step.primary{background:var(--accent);color:var(--panel)}
+.step:disabled{opacity:.45;cursor:not-allowed}
+.step.done::after{content:" \002713"}
+.pill{justify-self:start;display:inline-block;font-size:.7rem;letter-spacing:.05em;text-transform:uppercase;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.pill.ok{border-color:var(--ok);color:var(--ok)}.pill.bad{border-color:var(--neg);color:var(--neg)}.pill.warn{border-color:var(--warn);color:var(--warn)}
+.scanbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.scan{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--accent);background:var(--accent);color:var(--panel);padding:8px 14px;font-weight:600;font-size:.9rem;border-radius:6px;cursor:pointer}
+.scan:hover{filter:brightness(1.08)}
+.scan svg{width:18px;height:18px;flex:none}
+.scan input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.scan:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.scan[aria-disabled="true"]{opacity:.55;pointer-events:none}
+.status{font-size:.85rem;color:var(--muted);margin:0;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.status.err{color:var(--neg)}
+.status.ok{color:var(--ok)}
+.stop{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:2px 10px;font-size:.8rem}
+.ticket{border:1px solid var(--line);border-radius:8px;padding:10px;display:grid;gap:8px;background:var(--field)}
+.ticket input{background:var(--panel)}
+.ticket-head{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center}
+.ticket-head input{font-weight:600}
+.meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:.8rem;color:var(--muted)}
+.badge{display:inline-block;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;font-weight:600;padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.badge.check{border-color:var(--neg);color:var(--neg)}
+.badge.ok{border-color:var(--ok);color:var(--ok)}
+.thumbs{display:flex;gap:6px}
+.thumb{width:40px;height:40px;padding:0;border:1px solid var(--line);border-radius:4px;overflow:hidden;background:var(--panel)}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.confirm{border:1px solid var(--ok);background:none;color:var(--ok);padding:2px 10px;font-size:.78rem;font-weight:600}
+
+/* ---- tabs ---- */
+.wrap{padding-block-end:120px}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);box-shadow:0 -4px 16px rgba(10,20,30,.06)}
+.tabbar-in{max-width:780px;margin:0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
+.tab{border:0;background:none;color:var(--muted);display:grid;justify-items:center;gap:2px;padding:8px 2px 7px;font-size:.72rem;font-weight:600;border-top:3px solid transparent;border-radius:0;min-height:64px;min-width:0}
+.tab svg{width:24px;height:24px}
+.tab span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.tab .tabsum{font-family:var(--mono);font-weight:500;font-size:.66rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.tab[aria-current="page"]{color:var(--accent);border-top-color:var(--accent)}
+.tab[aria-current="page"] .tabsum{color:var(--accent)}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
+.tabnext{display:flex;justify-content:flex-end}
+.nextbtn{border:0;background:var(--accent);color:var(--panel);font-weight:700;padding:12px 18px;border-radius:8px;font-size:.95rem}
+.nextbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.exp-item.compact{border-bottom:0;padding-bottom:0;gap:4px}
+.exp-row{display:grid;grid-template-columns:minmax(0,1fr) auto 18px;gap:10px;align-items:center;width:100%;text-align:left;border:1px solid var(--line);background:var(--field);color:var(--ink);border-radius:8px;padding:10px 12px;cursor:pointer;font:inherit}
+.exp-row:hover{border-color:var(--accent)}
+.exp-row[aria-expanded="true"]{border-color:var(--accent);border-bottom-left-radius:0;border-bottom-right-radius:0}
+.er-main{display:grid;gap:1px;min-width:0}
+.er-main b{font-weight:600;overflow-wrap:anywhere}
+.er-main small{color:var(--muted);font-size:.78rem;font-family:var(--mono)}
+.er-main small:empty{display:none}
+.er-side{display:grid;justify-items:end;gap:2px}
+.er-amt{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.er-to{font-size:.7rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap}
+.chev{width:18px;height:18px;color:var(--muted);transition:transform .15s}
+.exp-row[aria-expanded="true"] .chev{transform:rotate(90deg);color:var(--accent)}
+.er-flag{justify-self:start}
+.exp-edit{display:grid;gap:8px;border:1px solid var(--accent);border-top:0;border-radius:0 0 8px 8px;padding:10px 12px;background:var(--panel)}
+.exp-edit .mlabel{display:block}
+.exp-edit .line{align-items:end}
+.edit-done{display:flex;justify-content:flex-end}
+.hint.small{font-size:.78rem}
+@media (prefers-reduced-motion:reduce){.chev{transition:none}}
+
+.dup{display:grid;gap:6px;border:1px solid var(--warn);border-left:4px solid var(--warn);border-radius:8px;padding:8px 10px;font-size:.85rem;color:var(--ink);background:var(--panel)}
+.dup-acts{display:flex;gap:8px;flex-wrap:wrap}
+.tline{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 12px;padding:8px 0;border-bottom:1px dashed var(--line)}
+.tline:last-child{border-bottom:0}
+.tline .nm{font-weight:600}
+.tline .calc2{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:.88rem;color:var(--muted);white-space:nowrap}
+.tline .calc2 b{color:var(--ink);font-weight:600}
+.tlines{display:grid}
+.ticket-head .tlabel{font-weight:600;overflow-wrap:break-word;min-width:0}
+.tedit{border:1px solid var(--line);background:var(--panel);color:var(--accent);font-weight:600;padding:4px 12px;font-size:.82rem}
+
+.ticketsum{margin:0;font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:.85rem;color:var(--ink)}
+.landing{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin-top:10px;padding:6px 2px;border-bottom:2px solid var(--accent);font-size:.85rem;color:var(--accent)}
+.landing:first-child{margin-top:0}
+.landing b{text-transform:uppercase;letter-spacing:.06em;font-size:.75rem}
+.tmeta-edit{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.tmeta-edit .mlabel{display:block}
+.lightbox{position:fixed;inset:0;background:rgba(5,10,14,.86);display:grid;place-items:center;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));z-index:10}
+.lightbox img{max-width:100%;max-height:82vh;border-radius:6px;background:#fff}
+.lightbox button{margin-top:10px;border:1px solid #cfd8de;background:#15212b;color:#e3ebef;padding:6px 16px}
+.lightbox div{display:grid;justify-items:center}
+footer{color:var(--muted);font-size:.8rem;text-align:center}
+@media (max-width:560px){
+  .colhead{display:none}
+  .mlabel{display:block}
+  .catch .line{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 32px}
+  .catch .line .c-name{grid-column:1 / 3}
+  .catch .line .c-del{grid-column:3;grid-row:1}
+  .exp .line{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 32px}
+  .exp .line .e-name{grid-column:1 / 3}
+  .exp .line .e-del{grid-column:3;grid-row:1}
+  .gear .line{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 32px}
+  .gear .line .g-item{grid-column:1 / 3}
+  .gear .line .g-del{grid-column:3;grid-row:1}
+  .amts,.ye-totals{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .crew-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 32px}
+  .crew-row .m-name{grid-column:1 / 3}
+  .crew-row .m-del{grid-column:3;grid-row:1}
+  .crew-row .m-dedc{grid-column:1 / 3}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.exports label.chk{display:flex;gap:10px;align-items:flex-start;text-transform:none;letter-spacing:normal;font-size:.9rem;font-weight:400;color:var(--ink);margin:10px 0}
+.exports label.chk input{width:auto;margin-top:3px;flex:none}
+.exports label.step{display:inline-block;text-transform:none;letter-spacing:normal;font-family:inherit;cursor:pointer}
+
+/* ---- sign-in and cloud save ---- */
+#gate{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px}
+#gate[hidden]{display:none}
+#gate .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:420px;width:100%;padding:28px 24px}
+#gate .brand{font-family:var(--display);font-weight:700;font-size:2rem;margin:0 0 4px;color:var(--ink)}
+#gate p{color:var(--muted);margin:.4rem 0 1rem;line-height:1.45}
+#gate label{display:block;font-size:.8rem;font-weight:600;color:var(--muted);margin:.8rem 0 .3rem}
+#gate input{width:100%;box-sizing:border-box;font:inherit;font-size:1.05rem;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--field)}
+#gate button{width:100%;margin-top:12px;font:inherit;font-weight:600;font-size:1rem;padding:12px;border-radius:10px;border:0;background:var(--accent);color:#fff;cursor:pointer}
+#gate button.link{background:none;color:var(--accent);padding:8px;margin-top:4px}
+#gate .msg{min-height:1.4em;font-size:.92rem;margin-top:10px}
+#gate .msg.err{color:var(--neg)}#gate .msg.ok{color:var(--ok)}
+.cloudbar{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:.85rem;color:var(--muted);margin:.2rem 0 .6rem}
+.cloudbar b{color:var(--ink);font-family:var(--display);font-size:1.15rem;font-weight:700}
+.cloudbar button{font:inherit;font-size:.85rem;background:none;border:1px solid var(--line);border-radius:8px;padding:4px 10px;color:var(--ink);cursor:pointer}
+#cloudState.ok{color:var(--ok)}#cloudState.err{color:var(--neg)}
+</style>
+
+<div id="gate" hidden>
+  <div class="card">
+    <h1 class="brand">CrewSettle</h1>
+    <div id="gStepEmail">
+      <p>Sign in with your email. We send you a one-time code, so there is no password to remember.</p>
+      <label for="gEmail">Email</label>
+      <input id="gEmail" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com">
+      <button id="gSend" type="button">Email me a code</button>
+    </div>
+    <div id="gStepCode" hidden>
+      <p>Check your email (<span id="gTo"></span>). Type the code from the email, or tap the sign-in link in it.</p>
+      <label for="gCode">Code</label>
+      <input id="gCode" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456">
+      <button id="gVerify" type="button">Sign in</button>
+      <button id="gBack" class="link" type="button">Use a different email</button>
+    </div>
+    <div id="gStepBoat" hidden>
+      <p>Welcome. What is the name of your vessel?</p>
+      <label for="gBoat">Vessel name</label>
+      <input id="gBoat" placeholder="F/V ...">
+      <button id="gCreate" type="button">Start</button>
+    </div>
+    <div class="msg" id="gMsg" role="status"></div>
+  </div>
+</div>
+<div class="wrap" id="app">
+  <header>
+    <span class="tag">Pilot</span>
+    <div class="cloudbar" id="cloudbar" hidden><b id="cbBoat"></b><span id="cloudState"></span><span id="cbUser"></span><button id="cbOut" type="button">Sign out</button></div>
+    <h1>Crew Share Settlement</h1>
+    <p>Use the tabs at the bottom: add fish tickets, expenses and crew, then see the settlement and pay slips. Everything updates as you go.</p>
+  </header>
+
+  <p class="notice" data-pane="settlement"><strong>Set this up to match your crew agreement.</strong> The example uses one common model: all expenses come off before the split, and the rest is split 52 % vessel/owner and 48 % crew. Many boats split differently or charge some costs to only one side. Set the split percentage and how each expense is charged to follow the vessel's own crew agreement.</p>
+
+  <section data-pane="tickets">
+    <h2>Trip</h2>
+    <div class="trip">
+      <label for="vessel">Vessel<input id="vessel" value="F/V Northern Reach"></label>
+      <label for="trip">Trip<input id="trip" value="Sablefish/halibut #4"></label>
+      <label for="port">Landed at<input id="port" value="Kodiak, AK"></label>
+      <label for="date">Landing date<input id="date" value="Sep 22, 2026"></label>
+    </div>
+  </section>
+
+  <section data-pane="tickets" class="catch">
+    <div class="row-head"><h2>Fish tickets</h2><span class="sum" id="grossTop"></span></div>
+    <p class="hint">Photograph each fish ticket as it comes in, whether you land once a trip or every few days with fresh fish. Claude reads the species, pounds and prices, and the settlement updates after every ticket. Always check the numbers against the photo.</p>
+    <p class="ticketsum" id="ticketSum"></p>
+    <div class="scanbar">
+      <label class="scan" id="scanTicketBtn" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M8 9h8M8 12h8M8 15h5"/></svg>
+        Scan fish ticket
+        <input type="file" id="scanTicket" accept="image/jpeg,image/png,image/webp" multiple>
+      </label>
+      <button class="add" id="addTicket">+ Type in a ticket</button>
+    </div>
+    <p class="status" id="ticketStatus" hidden></p>
+    <div class="lines" id="ticketList"></div>
+  </section>
+  <div class="tabnext" data-pane="tickets"><button class="nextbtn" data-goto="expenses">Next: Expenses &rarr;</button></div>
+
+  <section data-pane="expenses" class="exp-sum">
+    <h2>Expenses this trip</h2>
+    <div class="recon" id="expSummary"></div>
+  </section>
+
+  <section data-pane="expenses" class="exp">
+    <div class="row-head"><h2>Operating expenses</h2><span class="sum" id="expTop"></span></div>
+    <p class="hint">Scan a receipt or type it in. Tap a line to see or change the details.</p>
+    <div class="scanbar">
+      <label class="scan" id="scanReceiptBtn" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 8h6M9 11h6M9 14h3M14 16h1"/></svg>
+        Scan receipt or invoice
+        <input type="file" id="scanReceipt" accept="image/jpeg,image/png,image/webp" multiple>
+      </label>
+      <button class="add" id="addExp">+ Type in an expense</button>
+    </div>
+    <p class="status" id="receiptStatus" hidden></p>
+    <p class="hint" id="scanOff" hidden>Photo scanning works when this page is opened in Claude and you are signed in. You can still type everything in.</p>
+    <div class="lines" id="expLines"></div>
+    <datalist id="expUnits"><option value="lb"><option value="kg"><option value="gal"><option value="liters"><option value="boxes"><option value="each"></datalist>
+  </section>
+
+  <section data-pane="expenses" class="gear">
+    <div class="row-head"><h2>Lost gear</h2><span class="sum" id="gearTop"></span></div>
+    <p class="hint">Gear lost during the trip: groundline, anchors, buoy line, buoys, hooks. Enter what was lost and what it costs to replace, and charge it the way the crew agreement says.</p>
+    <div class="line colhead"><span>Item</span><span class="r">Qty</span><span>Unit</span><span class="r">Cost per unit</span><span class="r">Value</span><span></span></div>
+    <div class="lines" id="gearLines"></div>
+    <button class="add" id="addGear">+ Add lost gear</button>
+    <datalist id="gearItems"><option value="Groundline"><option value="Anchor / grapple"><option value="Buoy line"><option value="Buoys and flags"><option value="Hooks and gangions"><option value="Snaps"><option value="Radio / light buoy"></datalist>
+    <datalist id="gearUnits"><option value="skates"><option value="fathoms"><option value="each"><option value="coils"><option value="boxes"></datalist>
+  </section>
+  <div class="tabnext" data-pane="expenses"><button class="nextbtn" data-goto="crew">Next: Crew &rarr;</button></div>
+
+  <section data-pane="settlement">
+    <h2>Split</h2>
+    <div class="split">
+      <label for="crewPct">Crew share (%)<input id="crewPct" class="num" inputmode="decimal" value="48"></label>
+      <div class="lbl">Vessel/owner share (%)<span class="readout" id="vesselPct" aria-live="polite">52</span></div>
+    </div>
+    <p class="hint">Change the crew share and the vessel/owner share follows.</p>
+    <div class="waterfall" id="waterfall"></div>
+  </section>
+
+  <section data-pane="crew" class="crew">
+    <div class="row-head"><h2>Crew</h2><span class="sum" id="sharesTop"></span></div>
+    <p class="hint">Full share = 1.0. Personal deductions come off that person's pay only.</p>
+    <div class="line crew-row colhead"><span>Name</span><span>Role</span><span class="r">Shares</span><span class="r">Personal deductions</span><span></span></div>
+    <div class="lines" id="crewLines"></div>
+    <button class="add" id="addCrew">+ Add crew member</button>
+  </section>
+  <div class="tabnext" data-pane="crew"><button class="nextbtn" data-goto="settlement">Next: Settlement &rarr;</button></div>
+
+  <section data-pane="settlement">
+    <div class="row-head"><h2>Pay slips</h2><span class="hint" id="perShare"></span></div>
+    <div class="slips" id="slips"></div>
+  </section>
+
+  <section data-pane="settlement">
+    <h2>Reconciliation</h2>
+    <div class="recon" id="recon"></div>
+    <p class="hint">Rounding rule: every amount is worked in whole cents. Each crew member first gets their share of the crew pool rounded down to the cent. The cents left over go one at a time to the crew members with the largest dropped fractions, with ties going in crew-list order. The individual shares therefore always add up to the crew pool exactly.</p>
+  </section>
+
+  <section data-pane="settlement" class="exports">
+    <h2>Export, save and next trip</h2>
+    <h3 class="sub">For your accountant</h3>
+    <p class="notice demo"><strong>Draft exports, not yet tested in QuickBooks.</strong> Import only into a test file or a copy of the books, never into live books, until your accountant has checked the result.</p>
+    <div class="ye-steps">
+      <button class="step" id="exCsv">Download settlement (CSV)</button>
+      <button class="step" id="exQbo">Download QuickBooks journal (draft)</button>
+    </div>
+    <details><summary>QuickBooks account names and options</summary>
+      <div class="trip">
+        <label for="qbNo">Journal number<input id="qbNo" value="CS-1"></label>
+        <label for="qbShare">Crew shares (expense)<input id="qbShare" value="Crew shares"></label>
+        <label for="qbPay">Net pay owed to crew<input id="qbPay" value="Crew pay payable"></label>
+        <label for="qbAdv">Advances repaid<input id="qbAdv" value="Crew advances"></label>
+        <label for="qbDed">Other crew deductions<input id="qbDed" value="Crew deductions"></label>
+      </div>
+      <label class="chk"><input type="checkbox" id="qbFull"> Also include fish sales and trip expenses. Only tick this if they are not already in the books, for example from bank deposits or bills, or they will be entered twice.</label>
+      <div class="trip" id="qbFullBox" hidden>
+        <label for="qbAR">Fish buyers owe (receivable)<input id="qbAR" value="Accounts receivable"></label>
+        <label for="qbSales">Fish sales (income)<input id="qbSales" value="Fish sales"></label>
+        <label for="qbExp">Trip expenses<input id="qbExp" value="Trip expenses"></label>
+        <label for="qbAP">Expenses owed (payable)<input id="qbAP" value="Accounts payable"></label>
+      </div>
+      <p class="hint">The journal is balanced: crew shares are debited, and net pay, advances and deductions are credited, so debits equal credits. Account names must match the accounts in the QuickBooks file exactly.</p>
+    </details>
+    <h3 class="sub">Save your work</h3>
+    <p class="hint">This prototype does not save anything by itself. Save a season file to your phone or computer, and open it again next time.</p>
+    <div class="ye-steps">
+      <button class="step" id="exSave">Save season file</button>
+      <label class="step" for="exOpen">Open season file<input type="file" id="exOpen" accept=".json,application/json" hidden></label>
+    </div>
+    <h3 class="sub">Next trip</h3>
+    <p class="hint">When this settlement is final: each crew member's share is added to their year-to-date totals, and the fish tickets, expenses, lost gear and personal deductions are cleared for the next trip. The crew list stays, so you only change who is on board.</p>
+    <div class="ye-steps"><button class="step primary" id="exClose">Close this trip and start the next</button></div>
+    <p class="status" id="exStatus" tabindex="-1" hidden></p>
+  </section>
+
+  <section data-pane="yearend" class="ye">
+    <div class="row-head"><h2>1099 preparation report</h2><span class="hint" id="yeYear">Tax year 2026</span></div>
+    <p class="notice demo"><strong>Year-end 1099 preparation report &#x2014; review with your accountant before filing.</strong> The app adds up every settlement through the year and prepares the numbers your accountant needs. It does not file anything with the IRS and does not store Social Security numbers. Your accountant or a tax service collects the W-9s and files the 1099-MISC forms.</p>
+    <h3 class="sub">Vessel settings</h3>
+    <div class="trip">
+      <label for="avgCrew">Average operating crew &#x2014; preceding four calendar quarters<input id="avgCrew" class="num" inputmode="decimal" value="6.2"></label>
+    </div>
+    <p class="hint">Used for the 1099-MISC Box 5 check at year end. It is the average size of the operating crew on trips in the four calendar quarters before this one, not the crew on this trip.</p>
+    <div class="elig" id="yeElig"></div>
+    <p class="hint">Box 5 ("Fishing boat proceeds") is each crew member's share of the catch proceeds. Box 5 also requires that the crew member's pay depends on the catch and that the other conditions for fishing-crew treatment are met; the crew-size check above is only one of them. How expenses, advances and other deductions are treated must be confirmed by a US fisheries accountant.</p>
+    <div class="lines" id="yeList"></div>
+    <div class="ye-totals" id="yeTotals"></div>
+    <p class="warn" id="yeWarn" hidden></p>
+    <div class="ye-steps">
+      <button class="step primary" id="ye1">Copy report for accountant</button>
+      <button class="step" id="ye2">Mark as sent to accountant</button>
+    </div>
+    <p class="status" id="yeStatus" tabindex="-1" hidden></p>
+    <pre class="report" id="yeReport" hidden></pre>
+    <p class="hint deadline" id="yeDeadline">Filing deadlines your accountant works to for tax year 2026: copies to crew by January 31, 2027; e-file with the IRS by March 31, 2027.</p>
+    <p class="hint">Once the report is marked as sent, later settlement changes do not overwrite it. The app shows the previous and revised amounts so you can send an updated report.</p>
+    <p class="hint">Example: earlier trips, advances and W-9 status are example data.</p>
+  </section>
+
+  <footer>Prototype for feedback. Nothing is saved: photos and numbers disappear when you close the page. Scanning uses your own Claude account.</footer>
+</div>
+<nav class="tabbar" aria-label="Sections"><div class="tabbar-in"><button class="tab" data-tab="tickets" id="tab-tickets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg><span>Fish tickets</span><b class="tabsum" id="tabsum-tickets"></b></button><button class="tab" data-tab="expenses" id="tab-expenses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span>Expenses</span><b class="tabsum" id="tabsum-expenses"></b></button><button class="tab" data-tab="crew" id="tab-crew"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.9.4 5 2.8 5 5.8"/></svg><span>Crew</span><b class="tabsum" id="tabsum-crew"></b></button><button class="tab" data-tab="settlement" id="tab-settlement"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7h14"/><path d="M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/></svg><span>Settlement</span><b class="tabsum" id="tabsum-settlement"></b></button><button class="tab" data-tab="yearend" id="tab-yearend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Year end</span><b class="tabsum" id="tabsum-yearend"></b></button></div></nav>
+<div class="lightbox" id="lightbox" hidden><div><img id="lbImg" alt="Scanned document"><button id="lbClose">Close</button></div></div>
+
+<script>
+const DED_TYPES=["Advance","License","Gear","Travel","Other"];
+const CHARGE=[["shared","Before split"],["vessel","Vessel/owner only"],["crew","Crew only"],["custom","Custom split"]];
+const state={
+  tickets:[
+    {label:"Kodiak buyer",no:"A-10482",date:"2026-09-19",status:"example",photos:[],lines:[
+      {name:"Sablefish (blackcod)",lbs:18400,price:2.40},
+      {name:"Pacific cod",lbs:3100,price:0.45}]},
+    {label:"Kodiak buyer",no:"A-10491",date:"2026-09-22",status:"example",photos:[],lines:[
+      {name:"Pacific halibut",lbs:9200,price:6.50}]}
+  ],
+  exp:[
+    {name:"Fuel",amt:11200,qty:3500,unit:"gal",to:"shared",crewPct:50},{name:"Bait (squid, herring)",amt:6800,qty:4000,unit:"lb",to:"shared",crewPct:50},
+    {name:"Groceries",amt:2900,to:"shared",crewPct:50},{name:"Observer fees",amt:1580,to:"shared",crewPct:50}
+  ],
+  gear:[
+    {item:"Groundline",qty:3,unit:"skates",cost:250,to:"shared",crewPct:50},
+    {item:"Anchor / grapple",qty:1,unit:"each",cost:300,to:"shared",crewPct:50},
+    {item:"Buoy line",qty:50,unit:"fathoms",cost:3,to:"shared",crewPct:50}
+  ],
+  crew:[
+    {name:"Dave Larsen",role:"Skipper",share:1.5,deds:[],tin:"4821",tinStatus:"ok",
+      prior:[{trip:"Trip #1 \u00b7 May 18",box5:631523,ded:0,adv:0},{trip:"Trip #2 \u00b7 Jun 30",box5:807060,ded:0,adv:0},{trip:"Trip #3 \u00b7 Aug 12",box5:802467,ded:0,adv:0}]},
+    {name:"Marco Reyes",role:"Engineer",share:1.1,deds:[{type:"License",amt:400}],tin:"7730",tinStatus:"ok",
+      prior:[{trip:"Trip #1 \u00b7 May 18",box5:463117,ded:0,adv:0},{trip:"Trip #2 \u00b7 Jun 30",box5:591844,ded:0,adv:0},{trip:"Trip #3 \u00b7 Aug 12",box5:588476,ded:0,adv:0}]},
+    {name:"Tom Beck",role:"Deckhand",share:1.0,deds:[{type:"Advance",amt:1000},{type:"Gear",amt:200}],tin:"1964",tinStatus:"ok",
+      prior:[{trip:"Trip #1 \u00b7 May 18",box5:421015,ded:0,adv:0},{trip:"Trip #2 \u00b7 Jun 30",box5:538040,ded:0,adv:80000},{trip:"Trip #3 \u00b7 Aug 12",box5:534978,ded:0,adv:0}]},
+    {name:"Jen Oakes",role:"Deckhand",share:1.0,deds:[{type:"Gear",amt:250}],tin:"5502",tinStatus:"ok",
+      prior:[{trip:"Trip #1 \u00b7 May 18",box5:421015,ded:15000,adv:0},{trip:"Trip #2 \u00b7 Jun 30",box5:538040,ded:0,adv:0},{trip:"Trip #3 \u00b7 Aug 12",box5:534978,ded:0,adv:0}]},
+    {name:"Luis Ortega",role:"Deckhand",share:1.0,deds:[],tin:"3187",tinStatus:"review",
+      prior:[{trip:"Trip #1 \u00b7 May 18",box5:421015,ded:0,adv:0},{trip:"Trip #2 \u00b7 Jun 30",box5:538040,ded:0,adv:0},{trip:"Trip #3 \u00b7 Aug 12",box5:534978,ded:0,adv:50000}]},
+    {name:"Kyle Pruitt",role:"Greenhorn",share:0.5,deds:[{type:"Travel",amt:600}],tin:null,tinStatus:"missing",prior:[]}
+  ]
+};
+const TAX_YEAR=2026;
+const ui={expOpen:new Set(),tOpen:new Set()};
+const curTrip=()=>($("trip").value||"This trip")+($("date").value?" \u00b7 "+$("date").value:"");
+const thisTripLabel=()=>curTrip()+" (this trip)";
+const ye={sent:null,open:new Set()};
+document.addEventListener("toggle",e=>{const d=e.target;if(d.dataset&&d.dataset.open!==undefined){d.open?ye.open.add(+d.dataset.open):ye.open.delete(+d.dataset.open)}},true);
+
+/* ---- settlement core: whole cents throughout ---- */
+const num=v=>{const n=parseFloat(String(v).replace(/[^0-9.\-]/g,""));return isFinite(n)?n:0};
+const cents=v=>Math.round(num(v)*100);
+function settle(catchRows,expRows,crew,crewPctRaw){
+  const lineCents=catchRows.map(c=>Math.round(num(c.lbs)*num(c.price)*100));
+  const gross=lineCents.reduce((a,b)=>a+b,0);
+  let shared=0,vesselOnly=0,crewOnly=0;
+  expRows.forEach(e=>{
+    const a=cents(e.amt), to=e.to||"shared";
+    if(to==="shared") shared+=a;
+    else if(to==="vessel") vesselOnly+=a;
+    else if(to==="crew") crewOnly+=a;
+    else {const c=Math.round(a*Math.min(100,Math.max(0,num(e.crewPct)))/100); crewOnly+=c; vesselOnly+=a-c;}
+  });
+  const expenses=shared+vesselOnly+crewOnly;
+  const basis=gross-shared;
+  const pct=Math.min(100,Math.max(0,num(crewPctRaw)));
+  const crewBase=Math.round(basis*pct/100);
+  const vesselBase=basis-crewBase;
+  const pool=crewBase-crewOnly;
+  const vessel=vesselBase-vesselOnly;
+  const milli=crew.map(c=>Math.max(0,Math.round(num(c.share)*1000)));
+  const totalMilli=milli.reduce((a,b)=>a+b,0);
+  let alloc=milli.map(()=>0), leftover=0;
+  if(totalMilli>0&&pool>0){
+    const parts=milli.map((m,i)=>{const p=pool*m;return{i,floor:Math.floor(p/totalMilli),rem:p%totalMilli}});
+    alloc=parts.map(p=>p.floor);
+    leftover=pool-alloc.reduce((a,b)=>a+b,0);
+    [...parts].sort((a,b)=>b.rem-a.rem||a.i-b.i).slice(0,leftover).forEach(p=>alloc[p.i]+=1);
+  }
+  const people=crew.map((c,i)=>{
+    const ded=c.deds.reduce((s,d)=>s+cents(d.amt),0);
+    return{share:alloc[i],ded,pay:alloc[i]-ded};
+  });
+  const totalDed=people.reduce((s,p)=>s+p.ded,0);
+  const sumShares=people.reduce((s,p)=>s+p.share,0);
+  const netPaid=people.reduce((s,p)=>s+p.pay,0);
+  const perShareExact=totalMilli>0?(pool/100)/(totalMilli/1000):0;
+  return{lineCents,gross,expenses,shared,vesselOnly,crewOnly,crewBase,vesselBase,basis,pct,pool,vessel,totalShares:totalMilli/1000,perShareExact,people,totalDed,sumShares,netPaid,leftover,diff:pool>0?sumShares-pool:0};
+}
+/* ---- end core ---- */
+
+const $=id=>document.getElementById(id);
+const fmtC=c=>(c<0?"\u2212":"")+"$"+(Math.abs(c)/100).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const pctTxt=p=>(+p.toFixed(2)).toString();
+const shTxt=s=>s.toLocaleString("en-US",{maximumFractionDigits:3});
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const cell=(label,inner,cls="")=>`<label class="cell ${cls}"><span class="mlabel">${label}</span>${inner}</label>`;
+const allLines=()=>state.tickets.flatMap(t=>t.lines);
+const tTot=t=>t.lines.reduce((s,l)=>s+lineC(l),0);
+const tName=t=>(t.no?`Ticket #${t.no}`:"Fish ticket")+(t.label?` \u00b7 ${t.label}`:"");
+const fmtDate=d=>{if(!d)return "No date";const x=new Date(d+"T12:00:00");return isNaN(x)?d:x.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})};
+const todayISO=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+const toISO=v=>{if(!v)return "";if(/^\d{4}-\d{2}-\d{2}$/.test(v))return v;const x=new Date(v);return isNaN(x)?"":x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0")};
+const normNo=n=>String(n||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+function ticketOrder(){return state.tickets.map((t,i)=>i).sort((a,b)=>{const da=state.tickets[a].date||"9999",db=state.tickets[b].date||"9999";return da<db?-1:da>db?1:a-b})}
+function findTicketDups(){
+  const out=[];
+  state.tickets.forEach((t,i)=>{
+    if(t.dupOk)return;
+    for(let j=0;j<i;j++){
+      const u=state.tickets[j];
+      if(t.no&&normNo(t.no)===normNo(u.no)){out.push({i,msg:`Possible duplicate: ticket #${esc(t.no)} has already been added.`});break}
+      if(t.date&&t.date===u.date&&tTot(t)>0&&tTot(t)===tTot(u)){out.push({i,msg:`Possible duplicate: same date and same total (${fmtC(tTot(t))}) as ${esc(tName(u))}.`});break}
+    }
+  });
+  return out;
+}
+const gearC=g=>Math.round(num(g.qty)*num(g.cost)*100);
+const gearAsExp=()=>state.gear.map(g=>({amt:gearC(g)/100,to:g.to,crewPct:g.crewPct}));
+const run=()=>settle(allLines(),[...state.exp,...gearAsExp()],state.crew,$("crewPct").value);
+const lineC=c=>Math.round(num(c.lbs)*num(c.price)*100);
+const BADGE={example:["Example",""],manual:["Typed in",""],scanned:["Scanned \u00b7 check against photo","check"],checked:["Checked against photo","ok"]};
+const thumbs=ph=>ph.length?`<span class="thumbs">${ph.map((u,k)=>`<button class="thumb" data-photo="${u}" aria-label="View photo ${k+1}"><img src="${u}" alt=""></button>`).join("")}</span>`:"";
+const metaFor=(o,kind,idx)=>{
+  const [txt,cls]=BADGE[o.status]||BADGE.manual;
+  return `<div class="meta"><span class="badge ${cls}">${txt}</span>${thumbs(o.photos||[])}${o.status==="scanned"?`<button class="confirm" data-confirm="${kind}" data-i="${idx}">Numbers match photo</button>`:""}</div>`;
+};
+
+function renderLines(){
+  let lastDate=null;
+  $("ticketList").innerHTML=state.tickets.length?ticketOrder().map(ti=>{const t=state.tickets[ti];const open=ui.tOpen.has(ti);
+    const grp=(t.date||"")!==lastDate?(lastDate=(t.date||""),`<div class="landing"><span><b>Landing</b> \u00b7 ${esc(fmtDate(t.date))}</span><span class="sum" data-land="${esc(t.date||"")}"></span></div>`):"";
+    return grp+`
+    <div class="ticket">
+      <div class="ticket-head">
+        ${open?`<input id="t-label-${ti}" data-k="ticket" data-t="${ti}" data-f="label" value="${esc(t.label)}" aria-label="Buyer" placeholder="Buyer">`:`<span class="tlabel">${esc(tName(t))}</span>`}
+        <span class="sum" id="t-total-${ti}"></span>
+        ${open?`<button class="x" data-del="ticket" data-t="${ti}" aria-label="Remove ticket">\u00d7</button>`:`<button class="tedit" data-tedit="${ti}">Edit</button>`}
+      </div>
+      ${open?`<div class="tmeta-edit">${cell("Ticket number",`<input id="t-no-${ti}" data-k="ticket" data-t="${ti}" data-f="no" value="${esc(t.no||"")}">`)}${cell("Landing date",`<input id="t-date-${ti}" type="date" data-k="ticket" data-t="${ti}" data-f="date" value="${esc(t.date||"")}">`)}</div>`:""}
+      <div class="dup" id="t-dup-${ti}" hidden></div>
+      ${metaFor(t,"ticket",ti)}
+      ${open?`<div class="line colhead"><span>Species</span><span class="r">Weight (lb)</span><span class="r">Price per lb</span><span class="r">Line value</span><span></span></div>
+      ${t.lines.map((c,i)=>`
+      <div class="line">
+        ${cell("Species",`<input id="c-name-${ti}-${i}" data-k="line" data-t="${ti}" data-i="${i}" data-f="name" value="${esc(c.name)}">`,"c-name")}
+        ${cell("Weight (lb)",`<input id="c-lbs-${ti}-${i}" class="num" inputmode="decimal" data-k="line" data-t="${ti}" data-i="${i}" data-f="lbs" value="${c.lbs}">`)}
+        ${cell("Price per lb",`<input id="c-price-${ti}-${i}" class="num" inputmode="decimal" data-k="line" data-t="${ti}" data-i="${i}" data-f="price" value="${c.price}">`)}
+        <div class="cell"><span class="mlabel" style="text-align:right">Line value</span><span class="calc" id="c-val-${ti}-${i}"></span></div>
+        <button class="x c-del" data-del="line" data-t="${ti}" data-i="${i}" aria-label="Remove ${esc(c.name||"species")}">\u00d7</button>
+      </div>`).join("")}
+      <div class="row-head"><button class="add small" data-addline="${ti}">+ Add species</button><button class="tedit" data-tedit="${ti}">Done</button></div>`
+      :`<div class="tlines">${t.lines.map(c=>`<div class="tline"><span class="nm">${esc(c.name||"Unnamed species")}</span><span class="calc2">${num(c.lbs).toLocaleString("en-US")} lb \u00d7 $${num(c.price).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:4})} = <b>${fmtC(lineC(c))}</b></span></div>`).join("")||`<p class="hint">No species yet. Tap Edit to add them.</p>`}</div>`}
+    </div>`}).join(""):`<p class="hint">No fish tickets yet. Scan the first one or type it in.</p>`;
+  $("expLines").innerHTML=state.exp.length?state.exp.map((e,i)=>{const open=ui.expOpen.has(i);return `
+    <div class="exp-item compact">
+      <button class="exp-row" data-toggle="${i}" aria-expanded="${open}" aria-controls="e-edit-${i}">
+        <span class="er-main"><b id="er-name-${i}"></b><small id="er-sub-${i}"></small></span>
+        <span class="er-side"><span class="er-amt" id="er-amt-${i}"></span><span class="er-to" id="er-to-${i}"></span></span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+      ${e.status==="scanned"&&!open?`<span class="badge check er-flag">Scanned \u00b7 check against photo</span>`:""}
+      <div class="dup" id="e-dup-${i}" hidden></div>
+      <div class="exp-edit" id="e-edit-${i}"${open?"":" hidden"}>
+      <div class="line">
+        ${cell("Expense",`<input id="e-name-${i}" data-k="exp" data-i="${i}" data-f="name" value="${esc(e.name)}">`,"e-name")}
+        ${cell("Total amount",`<input id="e-amt-${i}" class="num" inputmode="decimal" data-k="exp" data-i="${i}" data-f="amt" value="${e.amt}">`)}
+        ${cell("Charged to",`<select id="e-to-${i}" data-k="exp" data-i="${i}" data-f="to">
+          ${CHARGE.map(([v,t])=>`<option value="${v}"${v===(e.to||"shared")?" selected":""}>${t}</option>`).join("")}
+        </select>`)}
+        <button class="x e-del" data-del="exp" data-i="${i}" aria-label="Remove ${esc(e.name||"expense")}">\u00d7</button>
+      </div>
+      <div class="qty-row">
+        <label for="e-qty-${i}" class="inline">Quantity<input id="e-qty-${i}" class="num" inputmode="decimal" data-k="exp" data-i="${i}" data-f="qty" value="${e.qty??""}" placeholder="optional"></label>
+        <label for="e-unit-${i}" class="inline">Unit<input id="e-unit-${i}" list="expUnits" data-k="exp" data-i="${i}" data-f="unit" value="${esc(e.unit||"")}" placeholder="lb, kg, gal"></label>
+        <span class="unitp" id="e-unitp-${i}"></span>
+      </div>
+      ${e.status?metaFor(e,"exp",i):""}
+      ${e.to==="custom"?`<div class="custom-split">
+        <label for="e-pct-${i}" class="inline">Crew pays<input id="e-pct-${i}" class="num" inputmode="decimal" data-k="exp" data-i="${i}" data-f="crewPct" value="${e.crewPct}"></label>
+        <span>% \u00b7 vessel/owner pays <b id="e-vpct-${i}"></b> %</span>
+      </div>`:""}
+      <p class="hint small">${({shared:"Before split: comes off the catch value before the vessel/crew split.",vessel:"Owner only: paid from the vessel/owner share after the split.",crew:"Crew only: paid from the crew share after the split.",custom:"Custom split: the cost is divided by the percentage you set."})[e.to||"shared"]} Quantity and unit are optional; the app shows what the boat paid per unit on this invoice, including any fees or tax.</p>
+      <div class="edit-done"><button class="add small" data-toggle="${i}">Done</button></div>
+      </div>
+    </div>`}).join(""):`<p class="hint">No expenses yet. Scan a receipt or type one in.</p>`;
+  $("gearLines").innerHTML=state.gear.length?state.gear.map((g,i)=>`
+    <div class="exp-item gear-item">
+      <div class="line">
+        ${cell("Item",`<input id="g-item-${i}" list="gearItems" data-k="gear" data-i="${i}" data-f="item" value="${esc(g.item)}">`,"g-item")}
+        ${cell("Qty",`<input id="g-qty-${i}" class="num" inputmode="decimal" data-k="gear" data-i="${i}" data-f="qty" value="${g.qty}">`)}
+        ${cell("Unit",`<input id="g-unit-${i}" list="gearUnits" data-k="gear" data-i="${i}" data-f="unit" value="${esc(g.unit)}">`)}
+        ${cell("Cost per unit",`<input id="g-cost-${i}" class="num" inputmode="decimal" data-k="gear" data-i="${i}" data-f="cost" value="${g.cost}">`)}
+        <div class="cell"><span class="mlabel" style="text-align:right">Value</span><span class="calc" id="g-val-${i}"></span></div>
+        <button class="x g-del" data-del="gear" data-i="${i}" aria-label="Remove ${esc(g.item||"gear")}">\u00d7</button>
+      </div>
+      <div class="charge">
+        <label for="g-to-${i}" class="inline">Charged to
+          <select id="g-to-${i}" data-k="gear" data-i="${i}" data-f="to">
+            ${CHARGE.map(([v,t])=>`<option value="${v}"${v===(g.to||"shared")?" selected":""}>${t}</option>`).join("")}
+          </select>
+        </label>
+        ${g.to==="custom"?`<span class="custom-split">
+          <label for="g-pct-${i}" class="inline">Crew pays<input id="g-pct-${i}" class="num" inputmode="decimal" data-k="gear" data-i="${i}" data-f="crewPct" value="${g.crewPct}"></label>
+          <span>% \u00b7 vessel/owner pays <b id="g-vpct-${i}"></b> %</span></span>`:""}
+      </div>
+    </div>`).join(""):`<p class="hint">No lost gear on this trip.</p>`;
+  $("crewLines").innerHTML=state.crew.map((c,i)=>`
+    <div class="member">
+      <div class="line crew-row">
+        ${cell("Name",`<input id="m-name-${i}" data-k="crew" data-i="${i}" data-f="name" value="${esc(c.name)}">`,"m-name")}
+        ${cell("Role",`<input id="m-role-${i}" data-k="crew" data-i="${i}" data-f="role" value="${esc(c.role)}">`)}
+        ${cell("Shares",`<input id="m-share-${i}" class="num" inputmode="decimal" data-k="crew" data-i="${i}" data-f="share" value="${c.share}">`)}
+        <div class="cell m-dedc"><span class="mlabel" style="text-align:right">Personal deductions</span><span class="calc" id="m-ded-${i}"></span></div>
+        <button class="x m-del" data-del="crew" data-i="${i}" aria-label="Remove ${esc(c.name||"crew member")}">\u00d7</button>
+      </div>
+      <div class="deds">
+        ${c.deds.map((d,j)=>`
+          <div class="ded">
+            <select id="d-type-${i}-${j}" data-ded="${i}" data-j="${j}" data-f="type" aria-label="Deduction type">
+              ${DED_TYPES.map(t=>`<option${t===d.type?" selected":""}>${t}</option>`).join("")}
+            </select>
+            <input id="d-amt-${i}-${j}" class="num" inputmode="decimal" data-ded="${i}" data-j="${j}" data-f="amt" value="${d.amt}" aria-label="Deduction amount">
+            <button class="x" data-delded="${i}" data-j="${j}" aria-label="Remove ${d.type} deduction">\u00d7</button>
+          </div>`).join("")}
+        <button class="add small" data-addded="${i}">+ Add deduction</button>
+      </div>
+    </div>`).join("");
+}
+
+function slipText(i,r){
+  const c=state.crew[i],p=r.people[i];
+  const L=(a,b)=>a.padEnd(26," ")+b;
+  return [
+    `${$("vessel").value} \u00b7 ${$("trip").value}`,
+    `Landed ${$("date").value}, ${$("port").value}`,
+    ``,
+    `${c.name} (${c.role})`,
+    L(`Gross catch value (${state.tickets.length} fish tickets):`,fmtC(r.gross)),
+    L("Expenses before split:","\u2212"+fmtC(r.shared).replace("\u2212","")),
+    L("Settlement basis:",fmtC(r.basis)),
+    ...(r.crewOnly?[L(`Crew share (${pctTxt(r.pct)} %):`,fmtC(r.crewBase)),L("Expenses charged to crew:","\u2212"+fmtC(r.crewOnly).replace("\u2212","")),L("Crew pool:",fmtC(r.pool))]
+      :[L(`Crew pool (${pctTxt(r.pct)} %):`,fmtC(r.pool))]),
+    L("Value per share:",fmtC(Math.round(r.perShareExact*100))),
+    L(`Your share (${shTxt(num(c.share))}):`,fmtC(p.share)),
+    ...c.deds.map(d=>L(`Less ${d.type.toLowerCase()}:`,"\u2212"+fmtC(cents(d.amt)))),
+    L("PAY:",fmtC(p.pay))
+  ].join("\n");
+}
+
+function renderResults(){
+  const r=run();
+  state.tickets.forEach((t,ti)=>{
+    let tot=0;
+    t.lines.forEach((c,i)=>{const v=lineC(c);tot+=v;const el=$(`c-val-${ti}-${i}`);if(el)el.textContent=fmtC(v)});
+    $("t-total-"+ti).textContent=fmtC(tot);
+  });
+  const byDate={};state.tickets.forEach(t=>{const k=t.date||"";byDate[k]=(byDate[k]||0)+tTot(t)});
+  document.querySelectorAll("[data-land]").forEach(el=>el.textContent=fmtC(byDate[el.dataset.land]||0));
+  const nLand=Object.keys(byDate).length,nTk=state.tickets.length,lbsAll=allLines().reduce((s,c)=>s+num(c.lbs),0);
+  $("ticketSum").textContent=nTk?`${nLand} ${nLand===1?"landing":"landings"} \u00b7 ${nTk} ${nTk===1?"ticket":"tickets"} \u00b7 ${lbsAll.toLocaleString("en-US")} lb \u00b7 ${fmtC(r.gross)}`:"";
+  const tdups=findTicketDups();
+  state.tickets.forEach((t,ti)=>{const d=$("t-dup-"+ti);if(!d)return;const x=tdups.find(z=>z.i===ti);d.hidden=!x;d.innerHTML=x?`<span>${x.msg}</span><span class="dup-acts"><button class="add small" data-tdupok="${ti}">Keep both</button><button class="add small" data-del="ticket" data-t="${ti}">Remove this one</button></span>`:""});
+  const TO_SHORT={shared:"Before split",vessel:"Owner only",crew:"Crew only"};
+  state.exp.forEach((e,i)=>{
+    const n=$("er-name-"+i);if(!n)return;
+    n.textContent=e.name||"Unnamed expense";
+    $("er-amt-"+i).textContent=fmtC(cents(e.amt));
+    $("er-to-"+i).textContent=e.to==="custom"?`Custom \u00b7 crew ${pctTxt(Math.min(100,Math.max(0,num(e.crewPct))))}%`:TO_SHORT[e.to||"shared"];
+    const q=num(e.qty),u=(e.unit||"").trim();
+    $("er-sub-"+i).textContent=q>0?`${q.toLocaleString("en-US")} ${u||"units"}${num(e.amt)>0?` \u00b7 ${fmtC(Math.round(cents(e.amt)/q))} paid per ${u||"unit"}`:""}`:"";
+  });
+  const dups=findDups();
+  state.exp.forEach((e,i)=>{const d=$("e-dup-"+i);if(!d)return;const x=dups.find(z=>z.i===i);d.hidden=!x;d.innerHTML=x?`<span>${x.msg}</span><span class="dup-acts"><button class="add small" data-dupok="${i}">Keep both</button><button class="add small" data-del="exp" data-i="${i}">Remove this one</button></span>`:""});
+  state.exp.forEach((e,i)=>{const u=$("e-unitp-"+i);if(u){const q=num(e.qty);u.textContent=q>0&&num(e.amt)>0?`= ${fmtC(Math.round(cents(e.amt)/q))} paid per ${(e.unit||"unit").trim()||"unit"}`:""}});
+  state.exp.forEach((e,i)=>{const el=$("e-vpct-"+i);if(el)el.textContent=pctTxt(100-Math.min(100,Math.max(0,num(e.crewPct))))});
+  let gearTot=0;
+  state.gear.forEach((g,i)=>{const v=gearC(g);gearTot+=v;$("g-val-"+i).textContent=fmtC(v);const el=$("g-vpct-"+i);if(el)el.textContent=pctTxt(100-Math.min(100,Math.max(0,num(g.crewPct))))});
+  $("gearTop").textContent=fmtC(-gearTot);
+  r.people.forEach((p,i)=>{$("m-ded-"+i).textContent=p.ded?fmtC(-p.ded):"\u2014"});
+  $("vesselPct").textContent=pctTxt(100-r.pct);
+  $("grossTop").textContent=fmtC(r.gross);
+  const opC=state.exp.reduce((s,e)=>s+cents(e.amt),0),gearC2=state.gear.reduce((s,g)=>s+gearC(g),0);
+  $("expTop").textContent=fmtC(-opC);
+  const dupN=findDups().length;
+  $("expSummary").innerHTML=`
+    <div class="rc"><span>Operating expenses</span><span class="sum">${fmtC(opC)}</span></div>
+    <div class="rc"><span>Lost gear</span><span class="sum">${fmtC(gearC2)}</span></div>
+    <div class="rc total"><span>Total expenses</span><span class="sum">${fmtC(opC+gearC2)}</span></div>
+    <div class="rc"><span>Deducted before split</span><span class="sum">${fmtC(r.shared)}</span></div>
+    ${r.vesselOnly?`<div class="rc"><span>Charged to vessel/owner only</span><span class="sum">${fmtC(r.vesselOnly)}</span></div>`:""}
+    ${r.crewOnly?`<div class="rc"><span>Charged to crew only</span><span class="sum">${fmtC(r.crewOnly)}</span></div>`:""}
+    ${dupN?`<p class="check bad" style="padding-top:8px"><b>!</b><span>${dupN} possible duplicate ${dupN===1?"expense":"expenses"}. Check the list below.</span></p>`:""}`;
+  $("sharesTop").textContent=shTxt(r.totalShares)+" shares";
+  const lbs=allLines().reduce((s,c)=>s+num(c.lbs),0);
+  const nT=state.tickets.length;
+  const perShareC=Math.round(r.perShareExact*100);
+  const after=r.vesselOnly!==0||r.crewOnly!==0;
+  $("waterfall").innerHTML=`
+    <div class="wf"><span class="op"></span><span>Gross catch value<small>${lbs.toLocaleString("en-US")} lb on ${nT} fish ${nT===1?"ticket":"tickets"}</small></span><span class="sum">${fmtC(r.gross)}</span></div>
+    <div class="wf"><span class="op">\u2212</span><span>Expenses before split</span><span class="sum neg">${fmtC(-r.shared)}</span></div>
+    <div class="wf total"><span class="op">=</span><span>Settlement basis</span><span class="sum">${fmtC(r.basis)}</span></div>
+    <div class="wf"><span class="op">\u2212</span><span>Vessel/owner share (${pctTxt(100-r.pct)} %)</span><span class="sum neg">${fmtC(-r.vesselBase)}</span></div>
+    ${after?`
+    <div class="wf total"><span class="op">=</span><span>Crew share of basis (${pctTxt(r.pct)} %)</span><span class="sum">${fmtC(r.crewBase)}</span></div>
+    <div class="wf"><span class="op">\u2212</span><span>Expenses charged to crew<small>Crew only, plus crew part of custom splits</small></span><span class="sum neg">${fmtC(-r.crewOnly)}</span></div>
+    <div class="wf total"><span class="op">=</span><span>Crew pool</span><span class="sum">${fmtC(r.pool)}</span></div>`
+    :`<div class="wf total"><span class="op">=</span><span>Crew pool (${pctTxt(r.pct)} %)</span><span class="sum">${fmtC(r.pool)}</span></div>`}
+    <div class="wf"><span class="op">\u00f7</span><span>Total crew shares</span><span class="sum">${shTxt(r.totalShares)}</span></div>
+    <div class="wf hl"><span class="op">=</span><span>Value per share<small>Unrounded $${r.perShareExact.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:7})}</small></span><span class="sum">${fmtC(perShareC)}</span></div>
+    ${r.pool<=0?`<p class="warn" style="margin-top:8px">The crew pool is zero or less, so there is nothing to pay out in shares. Check the expenses and how they are charged.</p>`:""}`;
+  $("perShare").textContent=`1 share = ${fmtC(perShareC)}`;
+  $("slips").innerHTML=state.crew.map((c,i)=>{
+    const p=r.people[i];
+    return `<div class="slip">
+      <h3>${esc(c.name||"Unnamed")}</h3>
+      <div class="role">${esc(c.role)} \u00b7 ${shTxt(num(c.share))} ${num(c.share)===1?"share":"shares"}</div>
+      <div class="l"><span>Share of crew pool</span><span class="sum">${fmtC(p.share)}</span></div>
+      ${c.deds.map(d=>`<div class="l"><span>${esc(d.type)}</span><span class="sum neg">${fmtC(-cents(d.amt))}</span></div>`).join("")}
+      <div class="l pay"><span>Pay</span><span class="sum${p.pay<0?" neg":""}">${fmtC(p.pay)}</span></div>
+      ${p.pay<0?`<p class="warn">Deductions are larger than this share.</p>`:""}
+      <button class="copy" data-copy="${i}">Copy slip</button>
+    </div>`}).join("");
+  const unchecked=[...state.tickets,...state.exp].filter(o=>o.status==="scanned").length;
+  const ok=r.diff===0 && r.vesselBase+r.crewBase===r.basis && r.vessel+r.pool+r.expenses===r.gross && r.sumShares-r.totalDed===r.netPaid;
+  $("recon").innerHTML=`
+    <div class="rc"><span>Gross catch value</span><span class="sum">${fmtC(r.gross)}</span></div>
+    <div class="rc"><span>Expenses before split<small class="hint" style="display:block">Lost gear this trip: ${fmtC(gearTot)}, counted here or below by how each item is charged</small></span><span class="sum neg">${fmtC(-r.shared)}</span></div>
+    <div class="rc total"><span>Settlement basis</span><span class="sum">${fmtC(r.basis)}</span></div>
+    <div class="rc"><span>Vessel/owner share of basis (${pctTxt(100-r.pct)} %)</span><span class="sum">${fmtC(r.vesselBase)}</span></div>
+    <div class="rc"><span>Expenses charged to vessel/owner</span><span class="sum neg">${fmtC(-r.vesselOnly)}</span></div>
+    <div class="rc total"><span>Vessel/owner net</span><span class="sum">${fmtC(r.vessel)}</span></div>
+    <div class="rc"><span>Crew share of basis (${pctTxt(r.pct)} %)</span><span class="sum">${fmtC(r.crewBase)}</span></div>
+    <div class="rc"><span>Expenses charged to crew</span><span class="sum neg">${fmtC(-r.crewOnly)}</span></div>
+    <div class="rc total"><span>Gross crew pool</span><span class="sum">${fmtC(r.pool)}</span></div>
+    <div class="rc"><span>Total personal deductions</span><span class="sum neg">${fmtC(-r.totalDed)}</span></div>
+    <div class="rc total"><span>Net amount paid to crew</span><span class="sum">${fmtC(r.netPaid)}</span></div>
+    <div class="rc"><span>Rounding cents allocated<small class="hint" style="display:block">${r.leftover} ${r.leftover===1?"cent":"cents"} placed by the rule below</small></span><span class="sum">${fmtC(r.leftover)}</span></div>
+    <div class="rc"><span>Rounding difference remaining</span><span class="sum">${fmtC(r.diff)}</span></div>
+    <p class="check${ok?"":" bad"}" style="padding-top:8px"><b>${ok?"\u2713":"\u2715"}</b><span>${ok?"Balances. Vessel/owner net + crew pool + all expenses = gross catch value, and crew shares \u2212 deductions = net paid.":"Does not balance. Check the inputs."}</span></p>
+    ${findTicketDups().length?`<p class="check bad"><b>!</b><span>${findTicketDups().length} possible duplicate fish ${findTicketDups().length===1?"ticket":"tickets"}. Check under Fish tickets before paying out.</span></p>`:""}
+    ${findDups().length?`<p class="check bad"><b>!</b><span>${findDups().length} possible duplicate ${findDups().length===1?"expense":"expenses"} under Expenses. Check before paying out.</span></p>`:""}
+    ${unchecked?`<p class="check bad"><b>!</b><span>${unchecked} scanned ${unchecked===1?"document has":"documents have"} not been checked against the photo yet. Check before paying out.</span></p>`:""}`;
+  renderYE(r);
+  renderTabSums(r);
+}
+
+function yearRows(r){
+  return state.crew.map((c,i)=>{
+    const p=r.people[i];
+    const adv=c.deds.filter(d=>d.type==="Advance").reduce((s,d)=>s+cents(d.amt),0);
+    const trips=[...(c.prior||[]),{trip:thisTripLabel(),box5:p.share,ded:p.ded-adv,adv,current:true}];
+    const sum=k=>trips.reduce((s,t)=>s+t[k],0);
+    const box5=sum("box5"),ded=sum("ded"),advY=sum("adv");
+    return{c,i,trips,box5,ded,adv:advY,net:box5-ded-advY};
+  });
+}
+function eligibility(){
+  const raw=$("avgCrew").value.trim(),v=parseFloat(raw.replace(",","."));
+  return{ok:isFinite(v)&&v>0&&v<10,v,raw};
+}
+function taxYear(){
+  const d=new Date($("date").value);
+  return isNaN(d)?TAX_YEAR:d.getFullYear();
+}
+const W9={ok:["W-9 collected (kept by your accountant or tax service)","ok"],missing:["W-9 missing","bad"],review:["W-9 details need review","warn"]};
+const tm=d=>d.toLocaleString("en-US",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+function reportText(){
+  const r=run(),rows=yearRows(r),Y=taxYear(),el=eligibility();
+  const L=(a,b)=>(a.length>=33?a+"  ":a.padEnd(34," "))+b;
+  const out=[
+    `1099 PREPARATION REPORT - tax year ${Y}`,
+    `${$("vessel").value}`,
+    `Prepared ${new Date().toLocaleDateString("en-US")}. Review with your accountant before filing.`,
+    `Average operating crew, preceding four calendar quarters: ${el.raw||"not entered"}`,
+    ``
+  ];
+  rows.forEach(x=>{
+    out.push(`${x.c.name||"Unnamed"} (${x.c.role})  -  ${(W9[x.c.tinStatus]||W9.missing)[0]}`);
+    x.trips.forEach(t=>out.push(L("  "+t.trip.replace(" (this trip)",""),fmtC(t.box5))));
+    out.push(L("  Box 5 fishing boat proceeds",fmtC(x.box5)));
+    out.push(L("  Personal deductions",fmtC(-x.ded)));
+    out.push(L("  Advances already paid",fmtC(-x.adv)));
+    out.push(L("  Net amount paid",fmtC(x.net)));
+    out.push("");
+  });
+  out.push(L("Total Box 5, all crew",fmtC(rows.reduce((s,x)=>s+x.box5,0))));
+  return out.join("\n");
+}
+function copyReport(){
+  const text=reportText(),pre=$("yeReport");
+  pre.textContent=text;pre.hidden=false;
+  const st=$("yeStatus");
+  const done=ok=>{st.hidden=false;st.className="status ok";st.textContent=ok?"Report copied. Paste it into an email to your accountant. The full report is shown below.":"The report is shown below. Select it and copy it into an email to your accountant."};
+  try{navigator.clipboard.writeText(text).then(()=>done(true)).catch(()=>{fallback(text);done(true)})}catch(_){fallback(text);done(true)}
+  st.focus();
+}
+function markSent(){
+  const rows=yearRows(run());
+  ye.sent={at:new Date(),amts:rows.map(x=>x.box5),log:[]};
+  renderResults();
+  const st=$("yeStatus");st.hidden=false;st.className="status ok";
+  st.textContent=`Marked as sent to your accountant on ${tm(ye.sent.at)}. If a settlement changes later, the app shows what changed so you can send an updated report.`;
+  st.focus();
+}
+function renderYE(r){
+  const Y=taxYear();
+  $("yeYear").textContent="Tax year "+Y;
+  $("yeDeadline").textContent=`Filing deadlines your accountant works to for tax year ${Y}: copies to crew by January 31, ${Y+1}; e-file with the IRS by March 31, ${Y+1}.`;
+  const el=eligibility(),rows=yearRows(r),now=Date.now();
+  // after the report is sent, changes are logged, never overwritten
+  if(ye.sent){
+    rows.forEach(x=>{
+      const was=ye.sent.amts[x.i];if(was===undefined)return;
+      const last=[...ye.sent.log].reverse().find(l=>l.i===x.i),prevTo=last?last.to:was;
+      if(x.box5!==prevTo){
+        if(last&&now-last.t<4000&&ye.sent.log[ye.sent.log.length-1]===last){last.to=x.box5;last.t=new Date()}
+        else ye.sent.log.push({i:x.i,from:prevTo,to:x.box5,t:new Date()});
+      }
+    });
+  }
+  $("yeElig").innerHTML=el.ok
+    ?`<span class="pill ok">Potentially eligible for fishing-crew treatment</span><span class="hint">Average operating crew in the preceding four calendar quarters: ${esc(el.raw)} (fewer than 10).</span>`
+    :`<span class="pill warn">1099-MISC Box 5 eligibility requires review</span><span class="hint">${el.raw===""?"Enter the average operating crew above. ":`Average operating crew: ${esc(el.raw)}. `}This crew arrangement may require employee/W-2 treatment. Confirm with a qualified tax professional.</span>`;
+  $("yeList").innerHTML=rows.map(x=>{
+    const c=x.c,[wl,wc]=W9[c.tinStatus]||W9.missing;
+    const was=ye.sent?ye.sent.amts[x.i]:undefined,changed=was!==undefined&&was!==x.box5;
+    const pill=ye.sent&&was!==undefined?(changed?`<span class="pill bad">Changed since report was sent</span>`:`<span class="pill ok">In report sent ${tm(ye.sent.at)}</span>`):`<span class="pill">Draft</span>`;
+    const log=ye.sent?ye.sent.log.filter(l=>l.i===x.i):[];
+    return `<div class="ye-row">
+      <div class="ye-head">
+        <div class="who"><b>${esc(c.name||"Unnamed")}</b><span>${esc(c.role)}${!(c.prior||[]).length?" \u00b7 first trip this year":""}</span></div>
+        <div class="tinbox"><span class="tstat ${wc}">${wl}</span>
+          ${c.tinStatus!=="ok"?`<button class="w9" data-w9="${x.i}">${c.tinStatus==="missing"?"Mark W-9 received (demo)":"Mark W-9 checked (demo)"}</button>`:""}</div>
+        ${pill}
+      </div>
+      ${c.tinStatus==="missing"?`<p class="warn small">Backup withholding may be required. Review before making further payments.</p>`:""}
+      <div class="amts">
+        <div class="amt box5"><span>Box 5 fishing boat proceeds (draft)</span><b class="sum">${fmtC(x.box5)}</b></div>
+        <div class="amt"><span>Personal deductions</span><b class="sum">${fmtC(-x.ded)}</b></div>
+        <div class="amt"><span>Advances already paid</span><b class="sum">${fmtC(-x.adv)}</b></div>
+        <div class="amt"><span>Net amount paid</span><b class="sum">${fmtC(x.net)}</b></div>
+      </div>
+      ${changed?`<div class="corr"><p><b>Changed since the report was sent to your accountant.</b> Previous: <span class="sum">${fmtC(was)}</span> \u00b7 Revised: <span class="sum">${fmtC(x.box5)}</span> (${x.box5>was?"+":"\u2212"}${fmtC(Math.abs(x.box5-was))})</p><p>Send an updated report so your accountant uses the revised amount.</p></div>`:""}
+      <details data-open="${x.i}"${ye.open.has(x.i)?" open":""}><summary>Box 5 by trip \u2014 check before sending</summary>
+        <div class="trips">${x.trips.map(t=>`<div class="tr${t.current?" cur":""}"><span>${esc(t.trip)}</span><span class="sum">${fmtC(t.box5)}</span></div>`).join("")}
+        <div class="tr tot"><span>Box 5 total, ${Y}</span><span class="sum">${fmtC(x.box5)}</span></div></div>
+        ${log.length?`<div class="log"><b>Changes since the report was sent</b>${log.map(l=>`<div>${tm(l.t)} \u00b7 Box 5 ${fmtC(l.from)} \u2192 ${fmtC(l.to)}</div>`).join("")}</div>`:""}
+      </details>
+    </div>`}).join("");
+  const S=k=>rows.reduce((s,x)=>s+x[k],0);
+  $("yeTotals").innerHTML=`<div class="amt box5"><span>Total Box 5, all crew</span><b class="sum">${fmtC(S("box5"))}</b></div><div class="amt"><span>Personal deductions</span><b class="sum">${fmtC(-S("ded"))}</b></div><div class="amt"><span>Advances already paid</span><b class="sum">${fmtC(-S("adv"))}</b></div><div class="amt"><span>Net amount paid</span><b class="sum">${fmtC(S("net"))}</b></div>`;
+  const missing=rows.filter(x=>x.c.tinStatus==="missing"),changedAny=ye.sent?rows.filter(x=>ye.sent.amts[x.i]!==undefined&&ye.sent.amts[x.i]!==x.box5):[];
+  const w=$("yeWarn");
+  const parts=[];
+  if(missing.length)parts.push(`W-9 missing: ${missing.map(x=>esc(x.c.name||"Unnamed")).join(", ")}. Your accountant needs it before filing.`);
+  if(changedAny.length)parts.push(`Changed since the report was sent: ${changedAny.map(x=>esc(x.c.name||"Unnamed")).join(", ")}. Send an updated report.`);
+  w.hidden=!parts.length;w.innerHTML=parts.join(" ");
+  $("ye2").textContent=ye.sent?"Mark updated report as sent":"Mark as sent to accountant";
+}
+
+
+/* ---- v2: exports, save/open, close trip ---- */
+const money=c=>(c/100).toFixed(2);
+const csvCell=v=>{v=String(v??"");return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+const csvOf=rows=>rows.map(r=>r.map(csvCell).join(",")).join("\r\n");
+let dlNs;
+async function download(name,text,type){
+  if(dlNs===undefined){try{dlNs=window.claude&&window.claude.use?await window.claude.use("downloads"):null}catch(_){dlNs=null}}
+  if(dlNs){
+    try{await dlNs.save({filename:name,data:text});return true}
+    catch(e){if(e&&e.code==="declined")return false;exStatus("The file could not be saved here"+(e&&e.message?": "+e.message:"")+".");return null}
+  }
+  const b=new Blob([text],{type});const a=document.createElement("a");
+  a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
+  return true;
+}
+const slug=s=>String(s||"").replace(/[^A-Za-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40)||"trip";
+function exStatus(msg){const st=$("exStatus");st.hidden=false;st.className="status ok";st.textContent=msg;st.focus()}
+function settlementCSV(){
+  const r=run(),trip=curTrip(),vessel=$("vessel").value;
+  const rows=[["Vessel","Trip","Date","Section","Description","Crew member","Amount (USD)"]];
+  const add=(sec,desc,who,c)=>rows.push([vessel,trip,toISO($("date").value),sec,desc,who,money(c)]);
+  state.tickets.forEach(t=>t.lines.forEach(l=>add("Fish ticket",`${tName(t)} · ${l.name} · ${num(l.lbs)} lb @ ${num(l.price)}`,"",lineC(l))));
+  add("Total","Gross catch value","",r.gross);
+  state.exp.forEach(e=>add("Expense",`${e.name} (${e.to||"shared"})`,"",cents(e.amt)));
+  state.gear.forEach(g=>add("Lost gear",`${g.item} (${g.to||"shared"})`,"",gearC(g)));
+  add("Total","Expenses before split","",r.shared);
+  add("Total","Settlement basis","",r.basis);
+  add("Total",`Crew pool (${pctTxt(r.pct)} %)`,"",r.pool);
+  add("Total","Vessel/owner share","",r.vessel);
+  state.crew.forEach((c,i)=>{
+    const p=r.people[i],who=c.name||"Unnamed";
+    add("Crew share",`${c.role} · ${shTxt(num(c.share))} shares`,who,p.share);
+    c.deds.forEach(d=>add("Deduction",d.type,who,-cents(d.amt)));
+    add("Net pay","Pay",who,p.pay);
+  });
+  return csvOf(rows);
+}
+function qboCSV(){
+  const r=run(),no=$("qbNo").value||"CS-1",date=toISO($("date").value)||todayISO(),trip=curTrip();
+  const A=id=>$(id).value.trim()||$(id).defaultValue;
+  const rows=[["Journal No","Journal Date","Account","Debits","Credits","Description","Name"]];
+  const dr=(acc,c,desc,name="")=>{if(c>0)rows.push([no,date,acc,money(c),"",desc,name])};
+  const cr=(acc,c,desc,name="")=>{if(c>0)rows.push([no,date,acc,"",money(c),desc,name])};
+  if($("qbFull").checked){
+    dr(A("qbAR"),r.gross,`${trip} · fish tickets`);
+    cr(A("qbSales"),r.gross,`${trip} · fish tickets`);
+    const exp=state.exp.reduce((s,e)=>s+cents(e.amt),0)+state.gear.reduce((s,g)=>s+gearC(g),0);
+    dr(A("qbExp"),exp,`${trip} · trip expenses and lost gear`);
+    cr(A("qbAP"),exp,`${trip} · trip expenses and lost gear`);
+  }
+  state.crew.forEach((c,i)=>{
+    const p=r.people[i],who=c.name||"Unnamed";
+    const adv=c.deds.filter(d=>d.type==="Advance").reduce((s,d)=>s+cents(d.amt),0);
+    const other=p.ded-adv;
+    dr(A("qbShare"),p.share,`${trip} · crew share`,who);
+    cr(A("qbAdv"),Math.min(adv,p.share),`${trip} · advance repaid`,who);
+    cr(A("qbDed"),Math.min(other,Math.max(0,p.share-adv)),`${trip} · deductions`,who);
+    cr(A("qbPay"),Math.max(0,p.pay),`${trip} · net pay`,who);
+  });
+  let d=0,k=0;rows.slice(1).forEach(x=>{d+=cents(x[3]);k+=cents(x[4])});
+  return{csv:csvOf(rows),balanced:d===k,d,k,neg:r.people.some(p=>p.pay<0)};
+}
+function saveSeason(){
+  const data={app:"CrewSettle prototype",version:2,savedAt:new Date().toISOString(),
+    fields:Object.fromEntries(["vessel","trip","port","date","crewPct","avgCrew","qbNo","qbShare","qbPay","qbAdv","qbDed","qbAR","qbSales","qbExp","qbAP"].map(id=>[id,$(id).value])),
+    qbFull:$("qbFull").checked,
+    state:{...state,tickets:state.tickets.map(t=>({...t,photos:[]})),exp:state.exp.map(e=>({...e,photos:[]}))}};
+  download(`CrewSettle-${slug($("vessel").value)}-${todayISO()}.json`,JSON.stringify(data,null,1),"application/json").then(ok=>{if(ok)exStatus("Season file saved. Photos are not included, only the numbers. Open it again with “Open season file”.")});
+
+}
+function seasonData(){
+  return{app:"CrewSettle",version:2,savedAt:new Date().toISOString(),
+    fields:Object.fromEntries(["vessel","trip","port","date","crewPct","avgCrew","qbNo","qbShare","qbPay","qbAdv","qbDed","qbAR","qbSales","qbExp","qbAP"].map(id=>[id,$(id).value])),
+    qbFull:$("qbFull").checked,
+    state:{...state,tickets:state.tickets.map(t=>({...t,photos:[]})),exp:state.exp.map(e=>({...e,photos:[]}))}};
+}
+function applySeason(d){
+  if(!d||!d.state||!Array.isArray(d.state.crew))throw 0;
+  ["tickets","exp","gear","crew"].forEach(k=>state[k]=Array.isArray(d.state[k])?d.state[k]:[]);
+  state.crew.forEach(c=>{c.deds=c.deds||[];c.prior=c.prior||[]});
+  Object.entries(d.fields||{}).forEach(([id,v])=>{const el=$(id);if(el)el.value=v});
+  $("qbFull").checked=!!d.qbFull;$("qbFullBox").hidden=!d.qbFull;
+  ui.expOpen.clear();ui.tOpen.clear();ye.sent=null;
+  renderLines();renderResults();
+}
+function openSeason(file){
+  const fr=new FileReader();
+  fr.onload=()=>{
+    try{
+      const d=JSON.parse(fr.result);
+      applySeason(d);
+      exStatus(`Season file opened (saved ${d.savedAt?new Date(d.savedAt).toLocaleString("en-US"):"earlier"}).`);
+    }catch(_){exStatus("That file could not be opened. Choose a season file saved from CrewSettle.")}
+  };
+  fr.readAsText(file);
+}
+function closeTrip(){
+  const r=run(),label=curTrip();
+  if(!state.crew.length){exStatus("Add the crew before closing the trip.");return}
+  if(r.people.some(p=>p.pay<0)){exStatus("Someone's deductions are larger than their share. Fix that before closing the trip.");return}
+  if(!confirm(`Close “${label}”? Each crew member's share is added to the year-to-date totals, and the fish tickets, expenses, lost gear and personal deductions are cleared. Save a season file first if you want a copy of this trip.`))return;
+  state.crew.forEach((c,i)=>{
+    const p=r.people[i],adv=c.deds.filter(d=>d.type==="Advance").reduce((s,d)=>s+cents(d.amt),0);
+    c.prior=[...(c.prior||[]),{trip:label,box5:p.share,ded:p.ded-adv,adv}];
+    c.deds=[];
+  });
+  state.tickets=[];state.exp=[];state.gear=[];
+  const m=String($("trip").value).match(/^(.*?)(\d+)\s*$/);
+  $("trip").value=m?m[1]+(+m[2]+1):($("trip").value?$("trip").value+" (next)":"Next trip");
+  $("date").value="";
+  const n=$("qbNo").value.match(/^(.*?)(\d+)$/);if(n)$("qbNo").value=n[1]+(+n[2]+1);
+  ui.expOpen.clear();ui.tOpen.clear();
+  renderLines();renderResults();
+  exStatus(`“${label}” is closed and added to the year-to-date totals. Add the fish tickets for the next trip.`);
+}
+document.addEventListener("input",e=>{
+  const t=e.target;
+  if(t.type==="file") return;
+  const k=t.dataset.k;
+  if(k==="line"){state.tickets[+t.dataset.t].lines[+t.dataset.i][t.dataset.f]=t.value}
+  else if(k==="ticket"){state.tickets[+t.dataset.t][t.dataset.f]=t.value}
+  else if(k){state[k][+t.dataset.i][t.dataset.f]=t.value}
+  else if(t.dataset.ded!==undefined){state.crew[+t.dataset.ded].deds[+t.dataset.j][t.dataset.f]=t.value}
+  else if(!["crewPct","avgCrew","date","trip"].includes(t.id)) return;
+  renderResults();
+});
+document.addEventListener("change",e=>{
+  const t=e.target;
+  if(t.id==="exOpen"){const f=t.files[0];t.value="";if(f)openSeason(f);return}
+  if(t.id==="qbFull"){$("qbFullBox").hidden=!t.checked;return}
+  if(t.id==="scanTicket"||t.id==="scanReceipt"){const files=[...t.files];t.value="";scan(t.id==="scanTicket"?"ticket":"receipt",files);return}
+  if(t.tagName==="SELECT"&&t.dataset.ded!==undefined){state.crew[+t.dataset.ded].deds[+t.dataset.j].type=t.value;renderResults()}
+  if(t.tagName==="SELECT"&&t.dataset.f==="to"){state[t.dataset.k][+t.dataset.i].to=t.value;const id=t.id;renderLines();renderResults();const el=$(id);if(el)el.focus()}
+});
+document.addEventListener("click",e=>{
+  const t=e.target.closest("button"); if(!t) return;
+  if(t.dataset.tab){setTab(t.dataset.tab,true);return}
+  if(t.dataset.tedit!==undefined){const ti=+t.dataset.tedit;ui.tOpen.has(ti)?ui.tOpen.delete(ti):ui.tOpen.add(ti);renderLines();renderResults();const b=document.querySelector(`[data-tedit="${ti}"]`);if(b)b.focus();return}
+  if(t.dataset.tdupok!==undefined){state.tickets[+t.dataset.tdupok].dupOk=true;renderResults();return}
+  if(t.dataset.dupok!==undefined){state.exp[+t.dataset.dupok].dupOk=true;renderResults();return}
+  if(t.dataset.toggle!==undefined){const i=+t.dataset.toggle;ui.expOpen.has(i)?ui.expOpen.delete(i):ui.expOpen.add(i);renderLines();renderResults();const r=document.querySelector(`.exp-row[data-toggle="${i}"]`);if(r){r.focus();if(ui.expOpen.has(i)){const f=$("e-name-"+i);if(f)f.focus()}}return}
+  if(t.dataset.goto){setTab(t.dataset.goto,true);return}
+  let focusSel=null;
+  if(t.dataset.photo){$("lbImg").src=t.dataset.photo;$("lightbox").hidden=false;$("lbClose").focus();return}
+  if(t.id==="lbClose"){$("lightbox").hidden=true;return}
+  if(t.dataset.stop!==undefined){busy[t.dataset.stop]?.abort();return}
+  if(t.dataset.confirm){(t.dataset.confirm==="ticket"?state.tickets:state.exp)[+t.dataset.i].status="checked"}
+  else if(t.dataset.del==="line"){const tk=state.tickets[+t.dataset.t];tk.lines.splice(+t.dataset.i,1);if(tk.status==="checked")tk.status="scanned"}
+  else if(t.dataset.del==="ticket"){state.tickets.splice(+t.dataset.t,1);ui.tOpen.clear()}
+  else if(t.dataset.del){state[t.dataset.del].splice(+t.dataset.i,1);if(t.dataset.del==="exp")ui.expOpen.clear()}
+  else if(t.dataset.addline!==undefined){const ti=+t.dataset.addline;state.tickets[ti].lines.push({name:"",lbs:0,price:0});focusSel=`#c-name-${ti}-${state.tickets[ti].lines.length-1}`}
+  else if(t.dataset.delded!==undefined){state.crew[+t.dataset.delded].deds.splice(+t.dataset.j,1)}
+  else if(t.dataset.addded!==undefined){const i=+t.dataset.addded;state.crew[i].deds.push({type:"Advance",amt:0});focusSel=`#d-amt-${i}-${state.crew[i].deds.length-1}`}
+  else if(t.id==="addTicket"){ui.tOpen.add(state.tickets.length);state.tickets.push({label:"",no:"",date:(state.tickets.length?state.tickets[ticketOrder().slice(-1)[0]].date:"")||todayISO(),status:"manual",photos:[],lines:[{name:"",lbs:0,price:0}]});focusSel=`#c-name-${state.tickets.length-1}-0`}
+  else if(t.id==="addExp"){state.exp.push({name:"",amt:0,to:"shared",crewPct:50});ui.expOpen.add(state.exp.length-1);focusSel=`#e-name-${state.exp.length-1}`}
+  else if(t.id==="addGear"){state.gear.push({item:"",qty:1,unit:"each",cost:0,to:"shared",crewPct:50});focusSel=`#g-item-${state.gear.length-1}`}
+  else if(t.id==="addCrew"){state.crew.push({name:"",role:"Deckhand",share:1,deds:[],tin:null,tinStatus:"missing",prior:[]});focusSel=`#m-name-${state.crew.length-1}`}
+  else if(t.dataset.w9!==undefined){const c=state.crew[+t.dataset.w9];if(!c.tin)c.tin=String(1000+Math.floor(Math.random()*9000));c.tinStatus="ok";renderResults();const b=$("ye1");if(b)b.focus();return}
+  else if(t.id==="exCsv"){download(`CrewSettle-${slug(curTrip())}-settlement.csv`,settlementCSV(),"text/csv").then(ok=>{if(ok)exStatus("Settlement CSV saved. It opens in Excel or Google Sheets.")});return}
+  else if(t.id==="exQbo"){const q=qboCSV();if(!q.balanced||q.neg){exStatus(q.neg?"Someone's deductions are larger than their share. Fix that before exporting.":"The journal does not balance. Check the numbers before exporting.");return}download(`CrewSettle-${slug(curTrip())}-quickbooks-journal-DRAFT.csv`,q.csv,"text/csv").then(ok=>{if(ok)exStatus(`QuickBooks journal saved (draft). Debits ${fmtC(q.d)} = credits ${fmtC(q.k)}. Import into a test file first.`)});return}
+  else if(t.id==="exSave"){saveSeason();return}
+  else if(t.id==="exClose"){closeTrip();return}
+  else if(t.id==="ye1"){copyReport();return}
+  else if(t.id==="ye2"){markSent();return}
+  else if(t.dataset.copy!==undefined){
+    const text=slipText(+t.dataset.copy,run());
+    const done=()=>{t.textContent="Copied";setTimeout(()=>t.textContent="Copy slip",1500)};
+    try{navigator.clipboard.writeText(text).then(done).catch(()=>{fallback(text);done()})}catch(_){fallback(text);done()}
+    return;
+  } else return;
+  renderLines();renderResults();
+  if(focusSel){const el=document.querySelector(focusSel);if(el)el.focus()}
+});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("lightbox").hidden)$("lightbox").hidden=true});
+$("lightbox").addEventListener("click",e=>{if(e.target.id==="lightbox")$("lightbox").hidden=true});
+function fallback(text){const ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand("copy")}catch(_){}ta.remove()}
+
+/* ---- scanning with Claude ---- */
+let sample=null, maxImgs=1;
+const busy={ticket:null,receipt:null};
+const TICKET_PROMPT=`The image(s) show one US commercial fishing fish ticket (a landing receipt or settlement from a seafood buyer). Several images are pages of the same ticket.
+Read it and reply with only this JSON:
+{"ticket_number": string or null, "buyer": string or null, "date": string or null,
+ "lines": [{"species": string, "pounds": number, "price_per_lb": number}],
+ "deductions": [{"description": string, "amount": number}],
+ "readable": true or false, "note": string or null}
+Rules: one entry in "lines" per species/grade line that is paid for. "pounds" is the paid weight in pounds; if the ticket shows kilograms, convert to pounds (1 kg = 2.20462 lb). "price_per_lb" is the price paid per pound in US dollars; if only a line total is shown, divide it by the pounds. Leave out lines with no payment (discards, personal use). Put amounts the buyer took off the ticket (taxes, assessments, ice, bait, fuel, advances) in "deductions" as positive numbers. Never guess a number you cannot read: leave that line out and say so in "note". If this is not a fish ticket, set "readable" to false and explain in "note".`;
+const RECEIPT_PROMPT=`The image(s) show one receipt or invoice for a commercial fishing trip. Several images are pages of the same document.
+Read it and reply with only this JSON:
+{"vendor": string or null, "date": string or null, "total": number or null,
+ "quantity": number or null, "unit": string or null,
+ "category": one of "Fuel","Bait","Groceries","Gear","Ice","Fees","Repairs","Other",
+ "description": short plain description, e.g. "Diesel, 1,850 gal",
+ "readable": true or false, "note": string or null}
+Rules: "total" is the final amount due in US dollars, including tax. "quantity" and "unit" are the main quantity bought, for example 1850 and "gal" for diesel or 4000 and "lb" for bait; null if there is no clear single quantity. Never guess a number you cannot read: set it to null and say so in "note". If this is not a receipt or invoice, set "readable" to false and explain in "note".`;
+
+function setStatus(kind,html,cls=""){
+  const el=$(kind==="ticket"?"ticketStatus":"receiptStatus");
+  el.className="status "+cls; el.innerHTML=html; el.hidden=!html;
+}
+const ERR={
+  not_granted:"Scanning was not allowed. You can still type the numbers in.",
+  rate_limited:"Too many scans right now. Try again in a little while.",
+  session_expired:"Sign in to Claude again, then try the scan again.",
+  image_rejected:"That photo could not be used. Try a JPEG or PNG photo that is not too large.",
+  refused:"Claude could not read this document. Type the numbers in instead.",
+  invalid_json:"Claude could not read the numbers clearly. Try a sharper photo, or type them in.",
+  images_unavailable:"Photo scanning is not available here. Type the numbers in instead."
+};
+async function scan(kind,files){
+  if(!sample||!files.length||busy[kind]) return;
+  const list=files.slice(0,maxImgs);
+  const urls=list.map(f=>URL.createObjectURL(f));
+  const ctl=new AbortController(); busy[kind]=ctl;
+  $(kind==="ticket"?"scanTicketBtn":"scanReceiptBtn").setAttribute("aria-disabled","true");
+  setStatus(kind,`<span>Reading ${kind==="ticket"?"fish ticket":"receipt"}\u2026 this can take up to a minute.</span><button class="stop" data-stop="${kind}">Stop</button>`);
+  try{
+    const d=await sample.json(kind==="ticket"?TICKET_PROMPT:RECEIPT_PROMPT,{images:list,signal:ctl.signal});
+    if(!d||d.readable===false) throw {code:"unreadable",note:d?.note};
+    if(kind==="ticket"){
+      const lines=(Array.isArray(d.lines)?d.lines:[]).map(l=>({name:String(l.species||"Unknown species"),lbs:+num(l.pounds).toFixed(2),price:+num(l.price_per_lb).toFixed(4)})).filter(l=>l.lbs>0);
+      if(!lines.length) throw {code:"unreadable",note:d.note||"No paid species lines were found."};
+      const label=[d.ticket_number?`Ticket #${d.ticket_number}`:`Fish ticket ${state.tickets.length+1}`,d.buyer,d.date].filter(Boolean).join(" \u00b7 ");
+      state.tickets.push({label:d.buyer?String(d.buyer):"",no:d.ticket_number?String(d.ticket_number):"",date:toISO(d.date)||todayISO(),status:"scanned",photos:urls,lines});
+      const deds=(Array.isArray(d.deductions)?d.deductions:[]).filter(x=>num(x.amount)>0);
+      deds.forEach(x=>state.exp.push({src:d.ticket_number?"#"+d.ticket_number:label,name:`${String(x.description||"Ticket deduction")} (${d.ticket_number?"#"+d.ticket_number:"fish ticket"})`,amt:+num(x.amount).toFixed(2),to:"shared",crewPct:50,status:"scanned",photos:urls}));
+      const v=lines.reduce((s,l)=>s+lineC(l),0);
+      setStatus(kind,`Added ${esc(label)}: ${lines.length} ${lines.length===1?"line":"lines"}, ${fmtC(v)}${deds.length?`, plus ${deds.length} ticket ${deds.length===1?"deduction":"deductions"} under Trip expenses`:""}. Check the numbers against the photo.${d.note?" Note: "+esc(d.note):""}`,"ok");
+    } else {
+      const amt=d.total==null?0:+num(d.total).toFixed(2);
+      const name=[d.description||d.category||"Receipt",d.vendor].filter(Boolean).join(" \u00b7 ");
+      state.exp.push({name:String(name),amt,qty:d.quantity!=null&&num(d.quantity)>0?+num(d.quantity):"",unit:d.unit?String(d.unit):"",to:"shared",crewPct:50,status:"scanned",photos:urls});
+      setStatus(kind,`Added ${esc(name)}: ${fmtC(Math.round(amt*100))}${d.date?" ("+esc(d.date)+")":""}. Set how it is charged, and check the amount against the photo.${d.note?" Note: "+esc(d.note):""}`,amt?"ok":"err");
+    }
+    renderLines();renderResults();
+  }catch(e){
+    urls.forEach(u=>URL.revokeObjectURL(u));
+    if(e?.code==="cancelled") setStatus(kind,"");
+    else if(e?.code==="unreadable") setStatus(kind,"This does not look like a readable "+(kind==="ticket"?"fish ticket":"receipt")+". "+(e.note?esc(e.note):"Try a sharper photo, or type the numbers in."),"err");
+    else setStatus(kind,ERR[e?.code]||"Scanning failed. Try again, or type the numbers in.","err");
+    if(["not_granted","sampling_disabled","not_declared","capability_disabled","capability_removed","images_unavailable"].includes(e?.code)) scanUI(false);
+  }finally{
+    busy[kind]=null;
+    $(kind==="ticket"?"scanTicketBtn":"scanReceiptBtn").removeAttribute("aria-disabled");
+  }
+}
+function scanUI(on){
+  $("scanTicketBtn").hidden=!on; $("scanReceiptBtn").hidden=!on; $("scanOff").hidden=on;
+}
+(async()=>{
+  try{
+    sample=window.claude?.use?await claude.use("sample"):null;
+    const lim=sample?await sample.limits().catch(()=>null):null;
+    if(lim?.images){
+      maxImgs=lim.images.maxCount||1;
+      const acc=(lim.images.mediaTypes||[]).join(",");
+      if(acc){$("scanTicket").accept=acc;$("scanReceipt").accept=acc}
+      scanUI(true);
+    } else scanUI(false);
+  }catch(_){scanUI(false)}
+})();
+
+
+
+/* ---- duplicate expense check ---- */
+const CAT=[["fuel",/fuel|diesel|bunker/i],["bait",/bait|squid|herring|sardine|mackerel/i],["ice",/\bice\b/i],["groceries",/grocer|food|provision/i],["observer",/observer/i],["fees",/fee|tax|assessment|landing/i],["gear",/gear|hook|line|skate|buoy|anchor/i]];
+const catOf=n=>{for(const [k,re] of CAT)if(re.test(n||""))return k;return null};
+function findDups(){
+  const out=[];
+  state.exp.forEach((e,i)=>{
+    if(e.dupOk)return;
+    const a=cents(e.amt);if(a<=0)return;
+    for(let j=0;j<i;j++){
+      const f=state.exp[j],b=cents(f.amt);if(b<=0)continue;
+      const same=a===b, cat=catOf(e.name)&&catOf(e.name)===catOf(f.name);
+      const fromTicket=e.src||f.src;
+      if(same||(cat&&fromTicket&&Math.abs(a-b)<=Math.max(a,b)*0.01)){
+        const t=e.src||f.src;
+        out.push({i,j,msg:`Possible duplicate: ${esc(e.name||"This expense")} of ${fmtC(a)} ${t?`also appears on fish ticket ${esc(t)}`:`matches "${esc(f.name||"another expense")}" (${fmtC(b)})`}.`});
+        break;
+      }
+    }
+  });
+  return out;
+}
+/* ---- tabs ---- */
+const TABS=["tickets","expenses","crew","settlement","yearend"];
+function setTab(t,scroll){
+  if(!TABS.includes(t))t="tickets";
+  document.querySelectorAll("[data-pane]").forEach(el=>el.hidden=el.dataset.pane!==t);
+  document.querySelectorAll(".tab").forEach(b=>{if(b.dataset.tab===t)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
+  $("app").dataset.tab=t;
+  try{localStorage.setItem("csv-tab",t)}catch(_){}
+  try{history.replaceState(null,"","#"+t)}catch(_){}
+  if(scroll)window.scrollTo(0,0);
+}
+function renderTabSums(r){
+  const ex=$("tabsum-expenses");if(!ex)return;
+  $("tabsum-tickets").textContent=fmtShort(r.gross);
+  ex.textContent=fmtShort(r.expenses);
+  $("tabsum-crew").textContent=state.crew.length+" crew";
+  $("tabsum-settlement").textContent=fmtShort(Math.round(r.perShareExact*100))+"/sh";
+  $("tabsum-yearend").textContent="1099 report";
+}
+const fmtShort=c=>{const d=Math.abs(c)/100;return "$"+(d>=1000?(d/1000).toLocaleString("en-US",{maximumFractionDigits:1})+"k":d.toLocaleString("en-US",{maximumFractionDigits:0}))};
+(function(){
+  let t=(location.hash||"").slice(1);
+  if(!TABS.includes(t)){try{t=localStorage.getItem("csv-tab")||""}catch(_){t=""}}
+  setTab(t||"tickets",false);
+})();
+renderLines();renderResults();
+
+/* ---- sign-in and cloud save (Supabase) ---- */
+const CS_URL="https://skrteeydwemrlbqlpfah.supabase.co",CS_KEY="sb_publishable_tVvLHjT3M-n_s2hUd2nTaQ__H0mQrHZ";
+const cs={db:null,user:null,boat:null,loading:false,timer:null,saving:false,again:false,lastJson:""};
+const g=id=>document.getElementById(id);
+function gMsg(t,kind){const m=g("gMsg");m.textContent=t||"";m.className="msg"+(kind?" "+kind:"")}
+function gStep(s){["Email","Code","Boat"].forEach(k=>g("gStep"+k).hidden=k!==s)}
+function cloudState(t,kind){const e=g("cloudState");e.textContent=t;e.className=kind||""}
+function blankSeason(name){
+  state.tickets=[];state.exp=[];state.gear=[];state.crew=[];
+  ["trip","port","date"].forEach(id=>{const el=$(id);if(el)el.value=""});
+  $("vessel").value=name||"";
+  ui.expOpen.clear();ui.tOpen.clear();ye.sent=null;
+  renderLines();renderResults();
+}
+async function loadBoat(){
+  const {data:mem,error}=await cs.db.from("boat_members").select("boat_id, role, boats(id,name)").eq("user_id",cs.user.id).limit(1);
+  if(error)throw error;
+  if(!mem||!mem.length){g("gate").hidden=false;gStep("Boat");gMsg("");return}
+  cs.boat=mem[0].boats;
+  const {data:s,error:e2}=await cs.db.from("seasons").select("data,updated_at").eq("boat_id",cs.boat.id).maybeSingle();
+  if(e2)throw e2;
+  cs.loading=true;
+  try{ if(s&&s.data)applySeason(s.data); else blankSeason(cs.boat.name); }finally{cs.loading=false}
+  cs.lastJson=JSON.stringify(seasonData().state)+JSON.stringify(seasonData().fields);
+  g("cbBoat").textContent=cs.boat.name;g("cbUser").textContent=cs.user.email||"";
+  g("cloudbar").hidden=false;g("gate").hidden=true;
+  cloudState(s?"Saved":"New season","ok");
+}
+function scheduleSave(){
+  if(!cs.boat||cs.loading)return;
+  clearTimeout(cs.timer);cs.timer=setTimeout(saveCloud,1500);
+}
+async function saveCloud(){
+  if(!cs.boat)return;
+  if(cs.saving){cs.again=true;return}
+  const d=seasonData(),sig=JSON.stringify(d.state)+JSON.stringify(d.fields);
+  if(sig===cs.lastJson)return;
+  cs.saving=true;cloudState("Saving…");
+  try{
+    const {error}=await cs.db.from("seasons").upsert({boat_id:cs.boat.id,data:d,updated_at:new Date().toISOString(),updated_by:cs.user.id});
+    if(error)throw error;
+    cs.lastJson=sig;cloudState("Saved","ok");
+  }catch(e){cloudState("Not saved, check your connection. Retrying…","err");setTimeout(scheduleSave,8000)}
+  finally{cs.saving=false;if(cs.again){cs.again=false;scheduleSave()}}
+}
+const _renderResults=renderResults;
+renderResults=function(){const r=_renderResults.apply(this,arguments);scheduleSave();return r};
+document.addEventListener("input",()=>scheduleSave(),true);
+window.addEventListener("beforeunload",e=>{if(cs.boat&&!cs.saving){const d=seasonData();if(JSON.stringify(d.state)+JSON.stringify(d.fields)!==cs.lastJson){saveCloud();e.preventDefault();e.returnValue=""}}});
+async function onSignedIn(user){
+  cs.user=user;
+  try{await loadBoat()}catch(e){g("gate").hidden=false;gStep("Email");gMsg("Could not load your vessel. Check your connection and reload the page.","err")}
+}
+(async function(){
+  if(!window.supabase||!window.supabase.createClient){g("gate").hidden=false;gMsg("Could not reach the sign-in service. Check your connection and reload.","err");return}
+  cs.db=window.supabase.createClient(CS_URL,CS_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
+  if(window.__csAuthHash){
+    const p=new URLSearchParams(window.__csAuthHash);
+    if(p.get("access_token")){await cs.db.auth.setSession({access_token:p.get("access_token"),refresh_token:p.get("refresh_token")}).catch(()=>{})}
+    else if(p.get("error_description")){gMsg(p.get("error_description").replace(/\+/g," ")+". Ask for a new code below.","err")}
+  }
+  const {data:{session}}=await cs.db.auth.getSession();
+  if(session&&session.user){onSignedIn(session.user)}
+  else{g("gate").hidden=false;gStep("Email")}
+  g("gSend").onclick=async()=>{
+    const email=g("gEmail").value.trim();
+    if(!/^\S+@\S+\.\S+$/.test(email)){gMsg("Type a valid email address.","err");return}
+    g("gSend").disabled=true;gMsg("Sending…");
+    const {error}=await cs.db.auth.signInWithOtp({email,options:{shouldCreateUser:true,emailRedirectTo:location.origin+location.pathname}});
+    g("gSend").disabled=false;
+    if(error){gMsg(/rate|seconds/i.test(error.message)?"Too many tries. Wait a minute and try again.":"Could not send the email: "+error.message,"err");return}
+    g("gTo").textContent=email;gStep("Code");gMsg("");g("gCode").focus();
+  };
+  g("gEmail").addEventListener("keydown",e=>{if(e.key==="Enter")g("gSend").click()});
+  g("gVerify").onclick=async()=>{
+    const email=g("gTo").textContent,token=g("gCode").value.replace(/\s/g,"");
+    if(!/^\d{6,10}$/.test(token)){gMsg("Type the code from the email.","err");return}
+    g("gVerify").disabled=true;gMsg("Checking…");
+    let res=await cs.db.auth.verifyOtp({email,token,type:"email"});
+    if(res.error)res=await cs.db.auth.verifyOtp({email,token,type:"signup"});
+    g("gVerify").disabled=false;
+    if(res.error){gMsg("That code did not work. Check it, or ask for a new one.","err");return}
+    gMsg("");onSignedIn(res.data.user);
+  };
+  g("gCode").addEventListener("keydown",e=>{if(e.key==="Enter")g("gVerify").click()});
+  g("gBack").onclick=()=>{gStep("Email");gMsg("")};
+  g("gCreate").onclick=async()=>{
+    const name=g("gBoat").value.trim();
+    if(!name){gMsg("Type the vessel name.","err");return}
+    g("gCreate").disabled=true;gMsg("Setting up…");
+    const {error}=await cs.db.rpc("create_boat",{boat_name:name});
+    g("gCreate").disabled=false;
+    if(error){gMsg("Could not create the vessel: "+error.message,"err");return}
+    gMsg("");await loadBoat();
+  };
+  g("gBoat").addEventListener("keydown",e=>{if(e.key==="Enter")g("gCreate").click()});
+  g("cbOut").onclick=async()=>{await saveCloud().catch(()=>{});await cs.db.auth.signOut();location.reload()};
+})();
+</script>
+
+</html>
