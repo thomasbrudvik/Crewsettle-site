@@ -355,7 +355,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
       <button class="add" id="addExp">+ Type in an expense</button>
     </div>
     <p class="status" id="receiptStatus" hidden></p>
-    <p class="hint" id="scanOff" hidden>Photo scanning works when this page is opened in Claude and you are signed in. You can still type everything in.</p>
+    <p class="hint" id="scanOff" hidden>Photo scanning of fish tickets and receipts is coming soon. For now, type the numbers in.</p>
     <div class="lines" id="expLines"></div>
     <datalist id="expUnits"><option value="lb"><option value="kg"><option value="gal"><option value="liters"><option value="boxes"><option value="each"></datalist>
   </section>
@@ -588,12 +588,19 @@ const metaFor=(o,kind,idx)=>{
 };
 
 const ROLES=["Captain","Chief mate","Mate","Engineer","Cook","Deckhand","Greenhorn"];
-function roleOpts(r){
-  r=r||"";
-  const custom=r&&!ROLES.includes(r)?[r]:[];
-  return (r?"":'<option value="" selected disabled>Choose role</option>')+
-    [...ROLES,...custom].map(x=>`<option${x===r?" selected":""}>${esc(x)}</option>`).join("")+
+const EXPENSES=["Fuel","Bait","Ice","Groceries","Lube oil","Observer fee","Landing fees","Gear & supplies"];
+function pickOpts(list,v,ph){
+  v=v||"";
+  const custom=v&&!list.includes(v)?[v]:[];
+  return (v?"":`<option value="" selected disabled>${ph}</option>`)+
+    [...list,...custom].map(x=>`<option${x===v?" selected":""}>${esc(x)}</option>`).join("")+
     '<option value="__other">Other\u2026</option>';
+}
+const roleOpts=r=>pickOpts(ROLES,r,"Choose role");
+const SHARES=[2,1.5,1.25,1,0.75,0.5];
+function shareOpts(v){
+  const n=num(v),list=SHARES.includes(n)?SHARES:[...SHARES,n].sort((a,b)=>b-a);
+  return list.map(x=>`<option value="${x}"${x===n?" selected":""}>${x}</option>`).join("")+'<option value="__other">Other\u2026</option>';
 }
 function renderLines(){
   let lastDate=null;
@@ -632,7 +639,7 @@ function renderLines(){
       <div class="dup" id="e-dup-${i}" hidden></div>
       <div class="exp-edit" id="e-edit-${i}"${open?"":" hidden"}>
       <div class="line">
-        ${cell("Expense",`<input id="e-name-${i}" data-k="exp" data-i="${i}" data-f="name" value="${esc(e.name)}">`,"e-name")}
+        ${cell("Expense",`<select id="e-name-${i}" data-expsel="${i}">${pickOpts(EXPENSES,e.name,"Choose expense")}</select>`,"e-name")}
         ${cell("Total amount",`<input id="e-amt-${i}" class="num" inputmode="decimal" data-k="exp" data-i="${i}" data-f="amt" value="${e.amt}">`)}
         ${cell("Charged to",`<select id="e-to-${i}" data-k="exp" data-i="${i}" data-f="to">
           ${CHARGE.map(([v,t])=>`<option value="${v}"${v===(e.to||"shared")?" selected":""}>${t}</option>`).join("")}
@@ -679,7 +686,7 @@ function renderLines(){
       <div class="line crew-row">
         ${cell("Name",`<input id="m-name-${i}" data-k="crew" data-i="${i}" data-f="name" value="${esc(c.name)}">`,"m-name")}
         ${cell("Role",`<select id="m-role-${i}" data-rolesel="${i}">${roleOpts(c.role)}</select>`)}
-        ${cell("Shares",`<input id="m-share-${i}" class="num" inputmode="decimal" data-k="crew" data-i="${i}" data-f="share" value="${c.share}">`)}
+        ${cell("Shares",`<select id="m-share-${i}" class="num" data-sharesel="${i}">${shareOpts(c.share)}</select>`)}
         <div class="cell m-dedc"><span class="mlabel" style="text-align:right">Personal deductions</span><span class="calc" id="m-ded-${i}"></span></div>
         <button class="x m-del" data-del="crew" data-i="${i}" aria-label="Remove ${esc(c.name||"crew member")}">\u00d7</button>
       </div>
@@ -699,7 +706,7 @@ function renderLines(){
 
 function slipText(i,r){
   const c=state.crew[i],p=r.people[i];
-  const L=(a,b)=>a.padEnd(26," ")+b;
+  const L=(a,b)=>(a.length>=36?a+"  ":a.padEnd(38," "))+b;
   return [
     `${$("vessel").value} \u00b7 ${$("trip").value}`,
     `Landed ${$("date").value}, ${$("port").value}`,
@@ -710,10 +717,14 @@ function slipText(i,r){
     L("Settlement basis:",fmtC(r.basis)),
     ...(r.crewOnly?[L(`Crew share (${pctTxt(r.pct)} %):`,fmtC(r.crewBase)),L("Expenses charged to crew:","\u2212"+fmtC(r.crewOnly).replace("\u2212","")),L("Crew pool:",fmtC(r.pool))]
       :[L(`Crew pool (${pctTxt(r.pct)} %):`,fmtC(r.pool))]),
+    L("Total crew shares:",shTxt(r.totalShares)),
     L("Value per share:",fmtC(Math.round(r.perShareExact*100))),
     L(`Your share (${shTxt(num(c.share))}):`,fmtC(p.share)),
     ...c.deds.map(d=>L(`Less ${d.type.toLowerCase()}:`,"\u2212"+fmtC(cents(d.amt)))),
-    L("PAY:",fmtC(p.pay))
+    L("PAY:",fmtC(p.pay)),
+    ``,
+    `Shares on board this trip:`,
+    ...state.crew.map(x=>L(`  ${x.name||"Unnamed"} (${x.role||"crew"})`,shTxt(num(x.share))))
   ].join("\n");
 }
 
@@ -1061,6 +1072,16 @@ document.addEventListener("change",e=>{
   if(t.id==="exOpen"){const f=t.files[0];t.value="";if(f)openSeason(f);return}
   if(t.id==="qbFull"){$("qbFullBox").hidden=!t.checked;return}
   if(t.id==="scanTicket"||t.id==="scanReceipt"){const files=[...t.files];t.value="";scan(t.id==="scanTicket"?"ticket":"receipt",files);return}
+  if(t.tagName==="SELECT"&&t.dataset.expsel!==undefined){
+    const e=state.exp[+t.dataset.expsel],id=t.id;
+    if(t.value==="__other"){const r=prompt("What is the expense? (for example Hydraulic oil, Crane hire)",EXPENSES.includes(e.name)?"":e.name||"");if(r&&r.trim())e.name=r.trim().slice(0,60)}
+    else e.name=t.value;
+    renderLines();renderResults();const el=$(id);if(el)el.focus();return}
+  if(t.tagName==="SELECT"&&t.dataset.sharesel!==undefined){
+    const c=state.crew[+t.dataset.sharesel],id=t.id;
+    if(t.value==="__other"){const r=prompt("Shares for this person (for example 1.2)",String(c.share??1));const v=r==null?NaN:parseFloat(String(r).replace(",","."));if(isFinite(v)&&v>=0&&v<=10)c.share=Math.round(v*1000)/1000;else if(r!=null)alert("Type a number between 0 and 10, for example 1.2")}
+    else c.share=+t.value;
+    renderLines();renderResults();const el=$(id);if(el)el.focus();return}
   if(t.tagName==="SELECT"&&t.dataset.rolesel!==undefined){
     const c=state.crew[+t.dataset.rolesel],id=t.id;
     if(t.value==="__other"){const r=prompt("Role name (for example Skipper, Engineer, Relief)",ROLES.includes(c.role)?"":c.role||"");if(r&&r.trim())c.role=r.trim().slice(0,40)}
@@ -1247,6 +1268,8 @@ const fmtShort=c=>{const d=Math.abs(c)/100;return "$"+(d>=1000?(d/1000).toLocale
 })();
 renderLines();renderResults();
 
+/* ---- no contact autofill on ledger fields ---- */
+(function(){const off=r=>r.querySelectorAll&&r.querySelectorAll("#app input:not([autocomplete])").forEach(i=>i.setAttribute("autocomplete","off"));off(document);new MutationObserver(()=>off(document)).observe($("app"),{childList:true,subtree:true})})();
 /* ---- sign-in and cloud save (Supabase) ---- */
 const CS_URL="https://skrteeydwemrlbqlpfah.supabase.co",CS_KEY="sb_publishable_tVvLHjT3M-n_s2hUd2nTaQ__H0mQrHZ";
 const cs={db:null,user:null,boat:null,loading:false,timer:null,saving:false,again:false,lastJson:""};
