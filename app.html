@@ -1171,11 +1171,11 @@ Rules: one entry in "lines" per species/grade line that is paid for. "pounds" is
 const RECEIPT_PROMPT=`The image(s) show one receipt or invoice for a commercial fishing trip. Several images are pages of the same document.
 Read it and reply with only this JSON:
 {"vendor": string or null, "date": string or null, "total": number or null,
- "quantity": number or null, "unit": string or null,
- "category": one of "Fuel","Bait","Groceries","Gear","Ice","Fees","Repairs","Other",
- "description": short plain description, e.g. "Diesel, 1,850 gal",
+ "lines": [{"category": one of "Fuel","Bait","Ice","Groceries","Lube oil","Observer fee","Landing fees","Gear & supplies","Repairs","Other",
+   "description": short plain description, e.g. "Diesel #2",
+   "quantity": number or null, "unit": string or null, "unit_price": number or null, "amount": number}],
  "readable": true or false, "note": string or null}
-Rules: "total" is the final amount due in US dollars, including tax. "quantity" and "unit" are the main quantity bought, for example 1850 and "gal" for diesel or 4000 and "lb" for bait; null if there is no clear single quantity. Never guess a number you cannot read: set it to null and say so in "note". If this is not a receipt or invoice, set "readable" to false and explain in "note".`;
+Rules: one entry in "lines" per item or charge on the receipt, in US dollars. "amount" is what that line costs. "quantity", "unit" and "unit_price" are for example 2350, "gal" and 4.29 for diesel; null if not shown. If the receipt has many small items of the same kind (for example a grocery bill), give one line per category with the summed amount and quantity null. Put tax, delivery or other surcharges in their own line with category "Other", unless they clearly belong to one item. "total" is the final amount due; the line amounts must add up to it. If they do not, say so in "note". Never guess a number you cannot read: set it to null and say so in "note". If this is not a receipt or invoice, set "readable" to false and explain in "note".`;
 
 function setStatus(kind,html,cls=""){
   const el=$(kind==="ticket"?"ticketStatus":"receiptStatus");
@@ -1212,10 +1212,23 @@ async function scan(kind,files){
       const v=lines.reduce((s,l)=>s+lineC(l),0);
       setStatus(kind,`Added ${esc(label)}: ${lines.length} ${lines.length===1?"line":"lines"}, ${fmtC(v)}${deds.length?`, plus ${deds.length} ticket ${deds.length===1?"deduction":"deductions"} under Trip expenses`:""}. Check the numbers against the photo.${d.note?" Note: "+esc(d.note):""}`,"ok");
     } else {
-      const amt=d.total==null?0:+num(d.total).toFixed(2);
-      const name=[d.description||d.category||"Receipt",d.vendor].filter(Boolean).join(" \u00b7 ");
-      state.exp.push({name:String(name),amt,qty:d.quantity!=null&&num(d.quantity)>0?+num(d.quantity):"",unit:d.unit?String(d.unit):"",to:"shared",crewPct:50,status:"scanned",photos:urls});
-      setStatus(kind,`Added ${esc(name)}: ${fmtC(Math.round(amt*100))}${d.date?" ("+esc(d.date)+")":""}. Set how it is charged, and check the amount against the photo.${d.note?" Note: "+esc(d.note):""}`,amt?"ok":"err");
+      const vend=d.vendor?String(d.vendor):"";
+      let rows=(Array.isArray(d.lines)?d.lines:[]).filter(l=>l&&l.amount!=null&&num(l.amount)!==0);
+      if(!rows.length) rows=[{category:d.category,description:d.description,quantity:d.quantity,unit:d.unit,amount:d.total}];
+      const added=rows.map(l=>{
+        const amt=l.amount==null?0:+num(l.amount).toFixed(2);
+        const cat=EXPENSES.includes(l.category)?l.category:"";
+        const name=[cat||l.description||"Receipt",vend].filter(Boolean).join(" \u00b7 ");
+        const q=l.quantity!=null&&num(l.quantity)>0?+num(l.quantity):"";
+        const p=q&&l.unit_price!=null&&num(l.unit_price)>0&&Math.abs(q*num(l.unit_price)-amt)<0.015?+num(l.unit_price):"";
+        const e={name:String(name),amt,qty:q,unit:l.unit?String(l.unit):"",to:"shared",crewPct:50,status:"scanned",photos:urls};
+        if(p)e.price=p;
+        state.exp.push(e);return {name:cat||l.description||"Item",amt};
+      });
+      const sum=added.reduce((s,a)=>s+Math.round(a.amt*100),0);
+      const tot=d.total==null?null:Math.round(num(d.total)*100);
+      const off=tot!=null&&tot!==sum;
+      setStatus(kind,`Added ${added.length} ${added.length===1?"line":"lines"}${vend?" from "+esc(vend):""}: ${added.map(a=>esc(a.name)+" "+fmtC(Math.round(a.amt*100))).join(", ")}${d.date?" ("+esc(d.date)+")":""}. ${off?`<strong>The lines add up to ${fmtC(sum)}, but the receipt total is ${fmtC(tot)}.</strong> `:""}Set how each line is charged, and check the amounts against the photo.${d.note?" Note: "+esc(d.note):""}`,sum&&!off?"ok":"err");
     }
     renderLines();renderResults();
   }catch(e){
