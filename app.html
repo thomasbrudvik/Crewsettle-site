@@ -102,6 +102,7 @@ button{font:inherit;cursor:pointer;border-radius:6px}
 .copy{justify-self:start;margin-top:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:5px 10px;font-size:.8rem}
 .copy:hover{border-color:var(--accent)}
 .warn{color:var(--neg);font-size:.85rem;margin:0}
+details.acct{margin:0}details.acct>summary{cursor:pointer;font-weight:700;padding:6px 0}details.acct[open]>summary{margin-bottom:10px}
 .recon{display:grid;border-top:1px solid var(--line)}
 .rc{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line);font-size:.92rem}
 .rc.total{font-weight:600}
@@ -312,7 +313,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
     <p>Use the tabs at the bottom: add fish tickets, expenses and crew, then see the settlement and pay slips. Everything updates as you go.</p>
   </header>
 
-  <p class="notice" data-pane="settlement"><strong>Set this up to match your crew agreement.</strong> The example uses one common model: all expenses come off before the split, and the rest is split 52 % vessel/owner and 48 % crew. Many boats split differently or charge some costs to only one side. Set the split percentage and how each expense is charged to follow the vessel's own crew agreement.</p>
+  <p class="notice" data-pane="settlement"><strong>Set the split to match your crew agreement.</strong> You can also choose, under Expenses, who pays each expense.</p>
 
   <section data-pane="tickets">
     <h2>Trip</h2>
@@ -400,9 +401,10 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
   </section>
 
   <section data-pane="settlement">
-    <h2>Reconciliation</h2>
+    <details class="acct"><summary>Details for your accountant</summary>
     <div class="recon" id="recon"></div>
     <p class="hint">Rounding rule: every amount is worked in whole cents. Each crew member first gets their share of the crew pool rounded down to the cent. The cents left over go one at a time to the crew members with the largest dropped fractions, with ties going in crew-list order. The individual shares therefore always add up to the crew pool exactly.</p>
+    </details>
   </section>
 
   <section data-pane="settlement" class="exports">
@@ -430,11 +432,11 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
       </div>
       <p class="hint">The journal is balanced: crew shares are debited, and net pay, advances and deductions are credited, so debits equal credits. Account names must match the accounts in the QuickBooks file exactly.</p>
     </details>
-    <h3 class="sub">Save your work</h3>
-    <p class="hint">This prototype does not save anything by itself. Save a season file to your phone or computer, and open it again next time.</p>
+    <h3 class="sub">Backup</h3>
+    <p class="hint">Your work is saved to your CrewSettle account automatically. If you want an extra copy, you can download a backup file.</p>
     <div class="ye-steps">
-      <button class="step" id="exSave">Save season file</button>
-      <label class="step" for="exOpen">Open season file<input type="file" id="exOpen" accept=".json,application/json" hidden></label>
+      <button class="step" id="exSave">Download backup</button>
+      <label class="step" for="exOpen">Open backup<input type="file" id="exOpen" accept=".json,application/json" hidden></label>
     </div>
     <h3 class="sub">Next trip</h3>
     <p class="hint">When this settlement is final: each crew member's share is added to their year-to-date totals, and the fish tickets, expenses, lost gear and personal deductions are cleared for the next trip. The crew list stays, so you only change who is on board.</p>
@@ -1022,7 +1024,7 @@ function saveSeason(){
     fields:Object.fromEntries(["vessel","trip","port","date","tripDays","crewPct","avgCrew","qbNo","qbShare","qbPay","qbAdv","qbDed","qbAR","qbSales","qbExp","qbAP"].map(id=>[id,$(id).value])),
     qbFull:$("qbFull").checked,
     state:{...state,tickets:state.tickets.map(t=>({...t,photos:[]})),exp:state.exp.map(e=>({...e,photos:[]}))}};
-  download(`CrewSettle-${slug($("vessel").value)}-${todayISO()}.json`,JSON.stringify(data,null,1),"application/json").then(ok=>{if(ok)exStatus("Season file saved. Photos are not included, only the numbers. Open it again with “Open season file”.")});
+  download(`CrewSettle-${slug($("vessel").value)}-${todayISO()}.json`,JSON.stringify(data,null,1),"application/json").then(ok=>{if(ok)exStatus("Backup saved. Photos are not included, only the numbers. Open it again with “Open backup”.")});
 
 }
 function seasonData(){
@@ -1047,7 +1049,7 @@ function openSeason(file){
       const d=JSON.parse(fr.result);
       applySeason(d);
       exStatus(`Season file opened (saved ${d.savedAt?new Date(d.savedAt).toLocaleString("en-US"):"earlier"}).`);
-    }catch(_){exStatus("That file could not be opened. Choose a season file saved from CrewSettle.")}
+    }catch(_){exStatus("That file could not be opened. Choose a backup file saved from CrewSettle.")}
   };
   fr.readAsText(file);
 }
@@ -1055,7 +1057,7 @@ function closeTrip(){
   const r=run(),label=curTrip();
   if(!state.crew.length){exStatus("Add the crew before closing the trip.");return}
   if(r.people.some(p=>p.pay<0)){exStatus("Someone's deductions are larger than their share. Fix that before closing the trip.");return}
-  if(!confirm(`Close “${label}”? Each crew member's share is added to the year-to-date totals, and the fish tickets, expenses, lost gear and personal deductions are cleared. Save a season file first if you want a copy of this trip.`))return;
+  if(!confirm(`Close “${label}”? Each crew member's share is added to the year-to-date totals, and the fish tickets, expenses, lost gear and personal deductions are cleared. Download a backup first if you want a copy of this trip.`))return;
   state.crew.forEach((c,i)=>{
     const p=r.people[i],adv=c.deds.filter(d=>d.type==="Advance").reduce((s,d)=>s+cents(d.amt),0);
     c.prior=[...(c.prior||[]),{trip:label,box5:p.share,ded:p.ded-adv,adv}];
