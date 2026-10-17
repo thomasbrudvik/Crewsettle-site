@@ -321,6 +321,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
       <label for="trip">Trip<input id="trip" value="Sablefish/halibut #4"></label>
       <label for="port">Landed at<input id="port" value="Kodiak, AK" placeholder="Port, for example Kodiak, AK"></label>
       <label for="date">Landing date<input id="date" type="date" value="2026-09-22"></label>
+      <label for="tripDays">Days at sea<input id="tripDays" class="num" inputmode="numeric" value="" placeholder="optional"></label>
     </div>
   </section>
 
@@ -386,7 +387,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
 
   <section data-pane="crew" class="crew">
     <div class="row-head"><h2>Crew</h2><span class="sum" id="sharesTop"></span></div>
-    <p class="hint">Full share = 1.0. Personal deductions come off that person's pay only.</p>
+    <p class="hint">Full share = 1.0. Personal deductions come off that person's pay only. If someone joined or left during the trip, fill in Days at sea under Trip and change their days here. The share they did not use is split on the rest of the crew.</p>
     <div class="line crew-row colhead"><span>Name</span><span>Role</span><span class="r">Shares</span><span class="r">Personal deductions</span><span></span></div>
     <div class="lines" id="crewLines"></div>
     <button class="add" id="addCrew">+ Add crew member</button>
@@ -584,7 +585,11 @@ function findTicketDups(){
 }
 const gearC=g=>Math.round(num(g.qty)*num(g.cost)*100);
 const gearAsExp=()=>state.gear.map(g=>({amt:gearC(g)/100,to:g.to,crewPct:g.crewPct}));
-const run=()=>settle(allLines(),[...state.exp,...gearAsExp()],state.crew,$("crewPct").value);
+const tripDaysN=()=>{const d=num($("tripDays").value);return d>0?d:0};
+const daysOf=c=>{const T=tripDaysN();if(!T)return null;const v=String(c.days??"").trim();if(v==="")return T;return Math.min(T,Math.max(0,num(v)))};
+const effShare=c=>{const T=tripDaysN(),d=daysOf(c);return T&&d!=null?num(c.share)*d/T:num(c.share)};
+const daysTxt=c=>{const T=tripDaysN(),d=daysOf(c);return T&&d!=null&&d<T?` \u00d7 ${d}/${T} days`:""};
+const run=()=>settle(allLines(),[...state.exp,...gearAsExp()],state.crew.map(c=>({...c,share:effShare(c)})),$("crewPct").value);
 const lineC=c=>Math.round(num(c.lbs)*num(c.price)*100);
 const BADGE={example:["Example",""],manual:["Typed in",""],scanned:["Scanned \u00b7 check against photo","check"],checked:["Checked against photo","ok"]};
 const thumbs=ph=>ph.length?`<span class="thumbs">${ph.map((u,k)=>`<button class="thumb" data-photo="${u}" aria-label="View photo ${k+1}"><img src="${u}" alt=""></button>`).join("")}</span>`:"";
@@ -698,6 +703,7 @@ function renderLines(){
         <div class="cell m-dedc"><span class="mlabel" style="text-align:right">Personal deductions</span><span class="calc" id="m-ded-${i}"></span></div>
         <button class="x m-del" data-del="crew" data-i="${i}" aria-label="Remove ${esc(c.name||"crew member")}">\u00d7</button>
       </div>
+      ${tripDaysN()?`<div class="qty-row"><label for="m-days-${i}" class="inline">Days on board<input id="m-days-${i}" class="num" inputmode="numeric" data-k="crew" data-i="${i}" data-f="days" value="${esc(String(c.days??""))}" placeholder="${tripDaysN()}"></label><span class="unitp">of ${tripDaysN()}</span></div>`:""}
       <div class="deds">
         ${c.deds.map((d,j)=>`
           <div class="ded">
@@ -727,12 +733,12 @@ function slipText(i,r){
       :[L(`Crew pool (${pctTxt(r.pct)} %):`,fmtC(r.pool))]),
     L("Total crew shares:",shTxt(r.totalShares)),
     L("Value per share:",fmtC(Math.round(r.perShareExact*100))),
-    L(`Your share (${shTxt(num(c.share))}):`,fmtC(p.share)),
+    L(`Your share (${shTxt(num(c.share))}${daysTxt(c)}):`,fmtC(p.share)),
     ...c.deds.map(d=>L(`Less ${d.type.toLowerCase()}:`,"\u2212"+fmtC(cents(d.amt)))),
     L("PAY:",fmtC(p.pay)),
     ``,
     `Shares on board this trip:`,
-    ...state.crew.map(x=>L(`  ${x.name||"Unnamed"} (${x.role||"crew"})`,shTxt(num(x.share))))
+    ...state.crew.map(x=>L(`  ${x.name||"Unnamed"} (${x.role||"crew"})`,shTxt(num(x.share))+daysTxt(x)))
   ].join("\n");
 }
 
@@ -769,7 +775,7 @@ function renderResults(){
   $("vesselPct").textContent=pctTxt(100-r.pct);
   $("grossTop").textContent=fmtC(r.gross);
   const opC=state.exp.reduce((s,e)=>s+cents(e.amt),0),gearC2=state.gear.reduce((s,g)=>s+gearC(g),0);
-  $("expTop").textContent=fmtC(-opC);
+  $("expTop").textContent=fmtC(opC);
   const dupN=findDups().length;
   $("expSummary").innerHTML=`
     <div class="rc"><span>Operating expenses</span><span class="sum">${fmtC(opC)}</span></div>
@@ -802,7 +808,7 @@ function renderResults(){
     const p=r.people[i];
     return `<div class="slip">
       <h3>${esc(c.name||"Unnamed")}</h3>
-      <div class="role">${esc(c.role)} \u00b7 ${shTxt(num(c.share))} ${num(c.share)===1?"share":"shares"}</div>
+      <div class="role">${esc(c.role)} \u00b7 ${shTxt(num(c.share))} ${num(c.share)===1?"share":"shares"}${daysTxt(c)}</div>
       <div class="l"><span>Share of crew pool</span><span class="sum">${fmtC(p.share)}</span></div>
       ${c.deds.map(d=>`<div class="l"><span>${esc(d.type)}</span><span class="sum neg">${fmtC(-cents(d.amt))}</span></div>`).join("")}
       <div class="l pay"><span>Pay</span><span class="sum${p.pay<0?" neg":""}">${fmtC(p.pay)}</span></div>
@@ -1013,7 +1019,7 @@ function qboCSV(){
 }
 function saveSeason(){
   const data={app:"CrewSettle prototype",version:2,savedAt:new Date().toISOString(),
-    fields:Object.fromEntries(["vessel","trip","port","date","crewPct","avgCrew","qbNo","qbShare","qbPay","qbAdv","qbDed","qbAR","qbSales","qbExp","qbAP"].map(id=>[id,$(id).value])),
+    fields:Object.fromEntries(["vessel","trip","port","date","tripDays","crewPct","avgCrew","qbNo","qbShare","qbPay","qbAdv","qbDed","qbAR","qbSales","qbExp","qbAP"].map(id=>[id,$(id).value])),
     qbFull:$("qbFull").checked,
     state:{...state,tickets:state.tickets.map(t=>({...t,photos:[]})),exp:state.exp.map(e=>({...e,photos:[]}))}};
   download(`CrewSettle-${slug($("vessel").value)}-${todayISO()}.json`,JSON.stringify(data,null,1),"application/json").then(ok=>{if(ok)exStatus("Season file saved. Photos are not included, only the numbers. Open it again with “Open season file”.")});
@@ -1021,7 +1027,7 @@ function saveSeason(){
 }
 function seasonData(){
   return{app:"CrewSettle",version:2,savedAt:new Date().toISOString(),
-    fields:Object.fromEntries(["vessel","trip","port","date","crewPct","avgCrew","qbNo","qbShare","qbPay","qbAdv","qbDed","qbAR","qbSales","qbExp","qbAP"].map(id=>[id,$(id).value])),
+    fields:Object.fromEntries(["vessel","trip","port","date","tripDays","crewPct","avgCrew","qbNo","qbShare","qbPay","qbAdv","qbDed","qbAR","qbSales","qbExp","qbAP"].map(id=>[id,$(id).value])),
     qbFull:$("qbFull").checked,
     state:{...state,tickets:state.tickets.map(t=>({...t,photos:[]})),exp:state.exp.map(e=>({...e,photos:[]}))}};
 }
@@ -1053,9 +1059,9 @@ function closeTrip(){
   state.crew.forEach((c,i)=>{
     const p=r.people[i],adv=c.deds.filter(d=>d.type==="Advance").reduce((s,d)=>s+cents(d.amt),0);
     c.prior=[...(c.prior||[]),{trip:label,box5:p.share,ded:p.ded-adv,adv}];
-    c.deds=[];
+    c.deds=[];c.days="";
   });
-  state.tickets=[];state.exp=[];state.gear=[];
+  state.tickets=[];state.exp=[];state.gear=[];$("tripDays").value="";
   const m=String($("trip").value).match(/^(.*?)(\d+)\s*$/);
   $("trip").value=m?m[1]+(+m[2]+1):($("trip").value?$("trip").value+" (next)":"Next trip");
   $("date").value="";
@@ -1075,13 +1081,14 @@ document.addEventListener("input",e=>{
       if(f==="qty"||f==="price"){const q=num(e.qty),pr=num(e.price);if(q>0&&pr>0){e.amt=Math.round(q*pr*100)/100;const a=$("e-amt-"+ix);if(a)a.value=e.amt}}
       else if(f==="amt"&&num(e.price)>0){e.price="";const pe=$("e-price-"+ix);if(pe)pe.value=""}}}
   else if(t.dataset.ded!==undefined){state.crew[+t.dataset.ded].deds[+t.dataset.j][t.dataset.f]=t.value}
-  else if(!["crewPct","avgCrew","date","trip"].includes(t.id)) return;
+  else if(!["crewPct","avgCrew","date","trip","tripDays"].includes(t.id)) return;
   renderResults();
 });
 document.addEventListener("change",e=>{
   const t=e.target;
   if(t.id==="exOpen"){const f=t.files[0];t.value="";if(f)openSeason(f);return}
   if(t.id==="qbFull"){$("qbFullBox").hidden=!t.checked;return}
+  if(t.id==="tripDays"){renderLines();renderResults();return}
   if(t.id==="scanTicket"||t.id==="scanReceipt"){const files=[...t.files];t.value="";scan(t.id==="scanTicket"?"ticket":"receipt",files);return}
   if(t.tagName==="SELECT"&&t.dataset.expsel!==undefined){
     const e=state.exp[+t.dataset.expsel],id=t.id;
