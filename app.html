@@ -132,6 +132,8 @@ details.acct{margin:0}details.acct>summary{cursor:pointer;font-weight:700;paddin
 .ye-totals{padding-top:4px}
 details summary{cursor:pointer;font-size:.85rem;color:var(--accent);font-weight:600}
 .trips{display:grid;margin-top:6px;border-top:1px solid var(--line)}
+details.arch.sup>summary b{text-decoration:line-through;opacity:.7}details.arch .step{margin-top:8px}details.arch>summary .pill{margin-left:auto}
+details.arch{border-top:1px solid var(--line);padding:8px 0}details.arch>summary{display:flex;justify-content:space-between;gap:10px;cursor:pointer}details.arch .tr .acts{gap:8px}details.arch .copy{margin-top:0;padding:2px 8px}ul.b5{margin:4px 0 0;padding-left:18px}ul.b5 li{margin:2px 0}
 details.earlier{margin-top:6px;border-top:1px solid var(--line);padding-top:10px}details.earlier .tr{align-items:center;padding:6px 0}
 .tr{display:flex;justify-content:space-between;gap:10px;font-size:.85rem;padding:4px 0;border-bottom:1px dashed var(--line)}
 .tr.cur{font-weight:600}.tr.tot{font-weight:600;border-bottom-style:solid}
@@ -315,6 +317,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
     <p>Use the tabs at the bottom: add fish tickets, expenses and crew, then see the settlement and pay slips. Everything updates as you go.</p>
   </header>
 
+  <p class="notice demo" id="corrBanner" hidden></p>
   <p class="notice" data-pane="settlement"><strong>Set the split to match your crew agreement.</strong> You can also choose, under Expenses, who pays each expense.</p>
 
   <section data-pane="tickets">
@@ -386,6 +389,11 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
       <div class="lbl">Vessel/owner share (%)<span class="readout" id="vesselPct" aria-live="polite">52</span></div>
     </div>
     <p class="hint">Change the crew share and the vessel/owner share follows.</p>
+    <div class="split">
+      <label for="poolDiv">Crew pool is divided by<select id="poolDiv"><option value="">The shares on board this trip</option><option value="fixed">A fixed number of shares</option></select></label>
+      <label for="poolFixed" id="poolFixedL" hidden>Fixed number of shares<input id="poolFixed" class="num" inputmode="decimal" placeholder="e.g. 8.5"></label>
+    </div>
+    <p class="hint" id="poolHint">Shares not used (an empty berth, or someone who left mid-trip) go to the rest of the crew.</p>
     <div class="waterfall" id="waterfall"></div>
   </section>
 
@@ -436,7 +444,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
       <p class="hint">The journal is balanced: crew shares are debited, and net pay, advances and deductions are credited, so debits equal credits. Account names must match the accounts in the QuickBooks file exactly.</p>
     </details>
     <h3 class="sub">Backup</h3>
-    <p class="hint">Your work is saved to your CrewSettle account automatically. If you want an extra copy, you can download a backup file.</p>
+    <p class="hint">Your work is saved to your CrewSettle account automatically. If you want an extra copy, you can download a backup file. The file contains crew names and pay, so store and share it securely. Once downloaded, it is your responsibility.</p>
     <div class="ye-steps">
       <button class="step" id="exSave">Download backup</button>
       <label class="step" for="exOpen">Open backup<input type="file" id="exOpen" accept=".json,application/json" hidden></label>
@@ -445,6 +453,9 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
     <p class="hint">When this settlement is final: each crew member's share is added to their year-to-date totals, and the fish tickets, expenses, lost gear and personal deductions are cleared for the next trip. The crew list stays, so you only change who is on board.</p>
     <div class="ye-steps"><button class="step primary" id="exClose">Close this trip and start the next</button></div>
     <p class="status" id="exStatus" tabindex="-1" hidden></p>
+    <h3 class="sub">Closed trips</h3>
+    <p class="hint">Each closed trip is kept exactly as it was settled: catch, expenses, shares and pay slips. It cannot be changed.</p>
+    <div id="archive"></div>
   </section>
 
   <section data-pane="yearend" class="ye">
@@ -452,11 +463,11 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
     <p class="notice demo"><strong>Year-end 1099 preparation report &#x2014; review with your accountant before filing.</strong> The app adds up every settlement through the year and prepares the numbers your accountant needs. It does not file anything with the IRS and does not store Social Security numbers. Your accountant or a tax service collects the W-9s and files the 1099-MISC forms.</p>
     <h3 class="sub">Vessel settings</h3>
     <div class="trip">
-      <label for="avgCrew">Average operating crew &#x2014; preceding four calendar quarters<input id="avgCrew" class="num" inputmode="decimal" value="6.2"></label>
+      <label for="avgCrew">Average operating crew &#x2014; preceding four calendar quarters<input id="avgCrew" class="num" inputmode="decimal" value="" placeholder="e.g. 5"></label>
     </div>
     <p class="hint">Used for the 1099-MISC Box 5 check at year end. It is the average size of the operating crew on trips in the four calendar quarters before this one, not the crew on this trip.</p>
     <div class="elig" id="yeElig"></div>
-    <p class="hint">Box 5 ("Fishing boat proceeds") is each crew member's share of the catch proceeds. Box 5 also requires that the crew member's pay depends on the catch and that the other conditions for fishing-crew treatment are met; the crew-size check above is only one of them. How expenses, advances and other deductions are treated must be confirmed by a US fisheries accountant.</p>
+    <p class="hint">How shared expenses, personal deductions, advances and later price adjustments affect the Box 5 amount must be confirmed by a US fisheries accountant.</p>
     <div class="lines" id="yeList"></div>
     <div class="ye-totals" id="yeTotals"></div>
     <p class="warn" id="yeWarn" hidden></p>
@@ -468,10 +479,10 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
     <pre class="report" id="yeReport" hidden></pre>
     <p class="hint deadline" id="yeDeadline">Filing deadlines your accountant works to for tax year 2026: copies to crew by January 31, 2027; e-file with the IRS by March 31, 2027.</p>
     <p class="hint">Once the report is marked as sent, later settlement changes do not overwrite it. The app shows the previous and revised amounts so you can send an updated report.</p>
-    <p class="hint">Example: earlier trips, advances and W-9 status are example data.</p>
+    
   </section>
 
-  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.</footer>
+  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.<br><span class="build">CrewSettle Pilot · build 2026-10-18.2</span></footer>
 </div>
 <nav class="tabbar" aria-label="Sections"><div class="tabbar-in"><button class="tab" data-tab="tickets" id="tab-tickets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg><span>Fish tickets</span><b class="tabsum" id="tabsum-tickets"></b></button><button class="tab" data-tab="expenses" id="tab-expenses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span>Expenses</span><b class="tabsum" id="tabsum-expenses"></b></button><button class="tab" data-tab="crew" id="tab-crew"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.9.4 5 2.8 5 5.8"/></svg><span>Crew</span><b class="tabsum" id="tabsum-crew"></b></button><button class="tab" data-tab="settlement" id="tab-settlement"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7h14"/><path d="M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/></svg><span>Settlement</span><b class="tabsum" id="tabsum-settlement"></b></button><button class="tab" data-tab="yearend" id="tab-yearend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Year end</span><b class="tabsum" id="tabsum-yearend"></b></button></div></nav>
 <div class="lightbox" id="lightbox" hidden><div><img id="lbImg" alt="Scanned document"><button id="lbClose">Close</button></div></div>
@@ -523,7 +534,7 @@ const num=v=>{let t=String(v??"").trim().replace(/[\s$]/g,"");
   if(t.includes(",")){t=(t.includes(".")||/^-?[1-9]\d{0,2}(,\d{3})+$/.test(t))?t.replace(/,/g,""):t.replace(",",".")}
   const n=parseFloat(t.replace(/[^0-9.\-]/g,""));return isFinite(n)?n:0};
 const cents=v=>Math.round(num(v)*100);
-function settle(catchRows,expRows,crew,crewPctRaw){
+function settle(catchRows,expRows,crew,crewPctRaw,fixedRaw){
   const lineCents=catchRows.map(c=>Math.round(num(c.lbs)*num(c.price)*100));
   const gross=lineCents.reduce((a,b)=>a+b,0);
   let shared=0,vesselOnly=0,crewOnly=0;
@@ -543,12 +554,16 @@ function settle(catchRows,expRows,crew,crewPctRaw){
   const vessel=vesselBase-vesselOnly;
   const milli=crew.map(c=>Math.max(0,Math.round(num(c.share)*1000)));
   const totalMilli=milli.reduce((a,b)=>a+b,0);
-  let alloc=milli.map(()=>0), leftover=0;
+  const fixedMilli=Math.max(0,Math.round(num(fixedRaw)*1000));
+  const divMilli=fixedMilli>totalMilli?fixedMilli:totalMilli;
+  let alloc=milli.map(()=>0), leftover=0, unused=0;
   if(totalMilli>0&&pool>0){
-    const parts=milli.map((m,i)=>{const p=pool*m;return{i,floor:Math.floor(p/totalMilli),rem:p%totalMilli}});
+    const parts=milli.map((m,i)=>{const p=pool*m;return{i,floor:Math.floor(p/divMilli),rem:p%divMilli}});
     alloc=parts.map(p=>p.floor);
-    leftover=pool-alloc.reduce((a,b)=>a+b,0);
-    [...parts].sort((a,b)=>b.rem-a.rem||a.i-b.i).slice(0,leftover).forEach(p=>alloc[p.i]+=1);
+    if(divMilli===totalMilli){
+      leftover=pool-alloc.reduce((a,b)=>a+b,0);
+      [...parts].sort((a,b)=>b.rem-a.rem||a.i-b.i).slice(0,leftover).forEach(p=>alloc[p.i]+=1);
+    } else unused=pool-alloc.reduce((a,b)=>a+b,0);
   }
   const people=crew.map((c,i)=>{
     const ded=c.deds.reduce((s,d)=>s+cents(d.amt),0);
@@ -557,8 +572,8 @@ function settle(catchRows,expRows,crew,crewPctRaw){
   const totalDed=people.reduce((s,p)=>s+p.ded,0);
   const sumShares=people.reduce((s,p)=>s+p.share,0);
   const netPaid=people.reduce((s,p)=>s+p.pay,0);
-  const perShareExact=totalMilli>0?(pool/100)/(totalMilli/1000):0;
-  return{lineCents,gross,expenses,shared,vesselOnly,crewOnly,crewBase,vesselBase,basis,pct,pool,vessel,totalShares:totalMilli/1000,perShareExact,people,totalDed,sumShares,netPaid,leftover,diff:pool>0?sumShares-pool:0};
+  const perShareExact=divMilli>0?(pool/100)/(divMilli/1000):0;
+  return{lineCents,gross,expenses,shared,vesselOnly,crewOnly,crewBase,vesselBase,basis,pct,pool,vessel,totalShares:totalMilli/1000,divShares:divMilli/1000,fixed:divMilli!==totalMilli,unused,perShareExact,people,totalDed,sumShares,netPaid,leftover,diff:pool>0?sumShares+unused-pool:0};
 }
 /* ---- end core ---- */
 
@@ -594,13 +609,15 @@ const tripDaysN=()=>{const d=num($("tripDays").value);return d>0?d:0};
 const daysOf=c=>{const T=tripDaysN();if(!T)return null;const v=String(c.days??"").trim();if(v==="")return T;return Math.min(T,Math.max(0,num(v)))};
 const effShare=c=>{const T=tripDaysN(),d=daysOf(c);return T&&d!=null?num(c.share)*d/T:num(c.share)};
 const daysTxt=c=>{const T=tripDaysN(),d=daysOf(c);return T&&d!=null&&d<T?` \u00d7 ${d}/${T} days`:""};
-const run=()=>settle(allLines(),[...state.exp,...gearAsExp()],state.crew.map(c=>c.off?{...c,share:0,deds:[]}:{...c,share:effShare(c)}),$("crewPct").value);
+const run=()=>settle(allLines(),[...state.exp,...gearAsExp()],state.crew.map(c=>c.off?{...c,share:0,deds:[]}:{...c,share:effShare(c)}),$("crewPct").value,$("poolDiv").value==="fixed"?$("poolFixed").value:0);
 const lineC=c=>Math.round(num(c.lbs)*num(c.price)*100);
 const BADGE={example:["Example",""],manual:["Typed in",""],scanned:["Scanned \u00b7 check against photo","check"],checked:["Checked against photo","ok"]};
 const thumbs=ph=>ph.length?`<span class="thumbs">${ph.map((u,k)=>`<button class="thumb" data-photo="${u}" aria-label="View photo ${k+1}"><img src="${u}" alt=""></button>`).join("")}</span>`:"";
 const metaFor=(o,kind,idx)=>{
-  const [txt,cls]=BADGE[o.status]||BADGE.manual;
-  return `<div class="meta"><span class="badge ${cls}">${txt}</span>${thumbs(o.photos||[])}${o.status==="scanned"?`<button class="confirm" data-confirm="${kind}" data-i="${idx}">Numbers match photo</button>`:""}</div>`;
+  let [txt,cls]=BADGE[o.status]||BADGE.manual;const ph=(o.photos||[]).length;
+  if(!ph&&o.status==="scanned")txt="Scanned \u00b7 check against the paper copy";
+  if(!ph&&o.status==="checked")txt="Checked";
+  return `<div class="meta"><span class="badge ${cls}">${txt}</span>${thumbs(o.photos||[])}${o.status==="scanned"?`<button class="confirm" data-confirm="${kind}" data-i="${idx}">${ph?"Numbers match photo":"Numbers checked"}</button>`:""}</div>`;
 };
 
 const ROLES=["Captain","Chief mate","Mate","Engineer","Cook","Deckhand","Greenhorn"];
@@ -699,7 +716,8 @@ function renderLines(){
           <span>% \u00b7 vessel/owner pays <b id="g-vpct-${i}"></b> %</span></span>`:""}
       </div>
     </div>`).join(""):`<p class="hint">No lost gear on this trip.</p>`;
-  const offs=state.crew.map((c,i)=>[c,i]).filter(([c])=>c.off);
+  const offs=state.crew.map((c,i)=>[c,i]).filter(([c])=>c.off&&!c.archived);
+  const arch=state.crew.map((c,i)=>[c,i]).filter(([c])=>c.archived);
   $("crewLines").innerHTML=state.crew.map((c,i)=>c.off?"":`
     <div class="member">
       <div class="line crew-row">
@@ -723,15 +741,21 @@ function renderLines(){
       </div>
     </div>`).join("")+(offs.length?`
     <details class="earlier"${ui.offOpen?" open":""}><summary>Not on board this trip (${offs.length})</summary>
-      <p class="hint">Not on board this trip. Tap Back on board to bring someone back. Their earnings this year are kept for the 1099 report.</p>
-      ${offs.map(([c,i])=>`<div class="tr"><span>${esc(c.name||"Unnamed")} \u00b7 ${esc(c.role)}</span><span class="acts"><button class="tedit" data-onboard="${i}">Back on board</button><button class="x" data-purge="${i}" aria-label="Remove ${esc(c.name||"crew member")} for good">\u00d7</button></span></div>`).join("")}
+      <p class="hint">Not on board this trip. Tap Back on board to bring someone back. Anyone who has been in a closed trip can only be archived, never deleted, so the records stay complete.</p>
+      ${offs.map(([c,i])=>`<div class="tr"><span>${esc(c.name||"Unnamed")} \u00b7 ${esc(c.role)}</span><span class="acts"><button class="tedit" data-onboard="${i}">Back on board</button>${hasHistory(c)?`<button class="tedit" data-archivecrew="${i}">Archive</button>`:`<button class="x" data-purge="${i}" aria-label="Delete ${esc(c.name||"crew member")}">\u00d7</button>`}</span></div>`).join("")}
+    </details>`:"")+(arch.length?`
+    <details class="earlier"><summary>Archived crew (${arch.length})</summary>
+      <p class="hint">Hidden from the crew list. Kept because they appear in closed trips or year-end totals.</p>
+      ${arch.map(([c,i])=>`<div class="tr"><span>${esc(c.name||"Unnamed")} \u00b7 ${esc(c.role)}</span><span class="acts"><button class="tedit" data-restorecrew="${i}">Restore</button></span></div>`).join("")}
     </details>`:"");
 }
 
 function slipText(i,r){
   const c=state.crew[i],p=r.people[i];
   const L=(a,b)=>(a.length>=36?a+"  ":a.padEnd(38," "))+b;
+  const corr=state.correcting?(state.archive||[]).find(x=>x.id===state.correcting):null;
   return [
+    ...(corr?[`CORRECTED SETTLEMENT \u2013 VERSION ${(corr.version||1)+1}`,``]:[]),
     `${$("vessel").value} \u00b7 ${$("trip").value}`,
     `Landed ${dateTxt($("date").value)}, ${$("port").value}`,
     ``,
@@ -741,17 +765,19 @@ function slipText(i,r){
     L("Settlement basis:",fmtC(r.basis)),
     ...(r.crewOnly?[L(`Crew share (${pctTxt(r.pct)} %):`,fmtC(r.crewBase)),L("Expenses charged to crew:","\u2212"+fmtC(r.crewOnly).replace("\u2212","")),L("Crew pool:",fmtC(r.pool))]
       :[L(`Crew pool (${pctTxt(r.pct)} %):`,fmtC(r.pool))]),
-    L("Total crew shares:",shTxt(r.totalShares)),
+    L(r.fixed?"Crew pool divided by (fixed):":"Total crew shares:",shTxt(r.divShares)),
     L("Value per share:",fmtC(Math.round(r.perShareExact*100))),
     L(`Your share (${shTxt(num(c.share))}${daysTxt(c)}):`,fmtC(p.share)),
     ...c.deds.map(d=>L(`Less ${d.type.toLowerCase()}:`,"\u2212"+fmtC(cents(d.amt)))),
     L("PAY:",fmtC(p.pay)),
     ``,
+    ...(r.fixed?[`Rule: crew pool divided by a fixed ${shTxt(r.divShares)} shares. Shares not used this trip go to the vessel/owner.`,``]:[`Rule: crew pool divided by the shares on board. Shares not used (someone who left or joined mid-trip) go to the rest of the crew.`,``]),
     `Shares on board this trip:`,
     ...state.crew.filter(x=>!x.off).map(x=>L(`  ${x.name||"Unnamed"} (${x.role||"crew"})`,shTxt(num(x.share))+daysTxt(x)))
   ].join("\n");
 }
 
+function syncPoolUI(){const f=$("poolDiv").value==="fixed";$("poolFixedL").hidden=!f;$("poolHint").textContent=f?"Shares not used (an empty berth, or someone who left mid-trip) go to the vessel/owner.":"Shares not used (an empty berth, or someone who left mid-trip) go to the rest of the crew."}
 function renderResults(){
   const r=run();
   state.tickets.forEach((t,ti)=>{
@@ -810,8 +836,9 @@ function renderResults(){
     <div class="wf"><span class="op">\u2212</span><span>Expenses charged to crew<small>Crew only, plus crew part of custom splits</small></span><span class="sum neg">${fmtC(-r.crewOnly)}</span></div>
     <div class="wf total"><span class="op">=</span><span>Crew pool</span><span class="sum">${fmtC(r.pool)}</span></div>`
     :`<div class="wf total"><span class="op">=</span><span>Crew pool (${pctTxt(r.pct)} %)</span><span class="sum">${fmtC(r.pool)}</span></div>`}
-    <div class="wf"><span class="op">\u00f7</span><span>Total crew shares</span><span class="sum">${shTxt(r.totalShares)}</span></div>
+    <div class="wf"><span class="op">\u00f7</span><span>${r.fixed?"Fixed number of shares":"Total crew shares"}${r.fixed?`<small>${shTxt(r.totalShares)} used this trip</small>`:""}</span><span class="sum">${shTxt(r.divShares)}</span></div>
     <div class="wf hl"><span class="op">=</span><span>Value per share<small>Unrounded $${r.perShareExact.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:7})}</small></span><span class="sum">${fmtC(perShareC)}</span></div>
+    ${r.unused?`<div class="wf"><span class="op"></span><span>Unused shares to vessel/owner</span><span class="sum">${fmtC(r.unused)}</span></div>`:""}
     ${r.pool<=0?`<p class="warn" style="margin-top:8px">The crew pool is zero or less, so there is nothing to pay out in shares. Check the expenses and how they are charged.</p>`:""}`;
   $("perShare").textContent=`1 share = ${fmtC(perShareC)}`;
   $("slips").innerHTML=state.crew.map((c,i)=>{
@@ -824,6 +851,7 @@ function renderResults(){
       ${c.deds.map(d=>`<div class="l"><span>${esc(d.type)}</span><span class="sum neg">${fmtC(-cents(d.amt))}</span></div>`).join("")}
       <div class="l pay"><span>Pay</span><span class="sum${p.pay<0?" neg":""}">${fmtC(p.pay)}</span></div>
       ${p.pay<0?`<p class="warn">Deductions are larger than this share.</p>`:""}
+      ${c.tinStatus!=="ok"?`<p class="warn small">W-9 not confirmed. Backup withholding may be required before payment. Check with your accountant. <button class="w9" data-w9="${i}">${c.tinStatus==="review"?"Mark W-9 checked":"Mark W-9 received"}</button></p>`:""}
       <button class="copy" data-copy="${i}">Copy slip</button>
     </div>`}).join("");
   const unchecked=[...state.tickets,...state.exp].filter(o=>o.status==="scanned").length;
@@ -839,17 +867,37 @@ function renderResults(){
     <div class="rc"><span>Expenses charged to crew</span><span class="sum neg">${fmtC(-r.crewOnly)}</span></div>
     <div class="rc total"><span>Gross crew pool</span><span class="sum">${fmtC(r.pool)}</span></div>
     <div class="rc"><span>Total personal deductions</span><span class="sum neg">${fmtC(-r.totalDed)}</span></div>
+    ${r.unused?`<div class="rc"><span>Unused shares to vessel/owner</span><span class="sum">${fmtC(r.unused)}</span></div>`:""}
     <div class="rc total"><span>Net amount paid to crew</span><span class="sum">${fmtC(r.netPaid)}</span></div>
     <div class="rc"><span>Rounding cents allocated<small class="hint" style="display:block">${r.leftover} ${r.leftover===1?"cent":"cents"} placed by the rule below</small></span><span class="sum">${fmtC(r.leftover)}</span></div>
     <div class="rc"><span>Rounding difference remaining</span><span class="sum">${fmtC(r.diff)}</span></div>
-    <p class="check${ok?"":" bad"}" style="padding-top:8px"><b>${ok?"\u2713":"\u2715"}</b><span>${ok?"Balances. Vessel/owner net + crew pool + all expenses = gross catch value, and crew shares \u2212 deductions = net paid.":"Does not balance. Check the inputs."}</span></p>
+    <p class="check${ok?"":" bad"}" style="padding-top:8px"><b>${ok?"\u2713":"\u2715"}</b><span>${ok?`Balances. Vessel/owner net + crew pool + all expenses = gross catch value, and crew shares${r.unused?" + unused shares":""} \u2212 deductions = net paid${r.unused?" + unused shares":""}.`:"Does not balance. Check the inputs."}</span></p>
     ${findTicketDups().length?`<p class="check bad"><b>!</b><span>${findTicketDups().length} possible duplicate fish ${findTicketDups().length===1?"ticket":"tickets"}. Check under Fish tickets before paying out.</span></p>`:""}
     ${findDups().length?`<p class="check bad"><b>!</b><span>${findDups().length} possible duplicate ${findDups().length===1?"expense":"expenses"} under Expenses. Check before paying out.</span></p>`:""}
     ${unchecked?`<p class="check bad"><b>!</b><span>${unchecked} scanned ${unchecked===1?"document has":"documents have"} not been checked against the photo yet. Check before paying out.</span></p>`:""}`;
   renderYE(r);
+  renderArchive();
   renderTabSums(r);
 }
 
+const newCid=()=>"c"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const hasHistory=c=>(c.prior||[]).length>0||(state.archive||[]).some(a=>a.crew.some(x=>(x.cid&&x.cid===c.cid)||(!x.cid&&x.name&&x.name===c.name)));
+function renderArchive(){
+  const el=$("archive");if(!el)return;const A=state.archive||[];
+  el.innerHTML=A.length?[...A].reverse().map(a=>`<details class="arch${a.superseded?" sup":""}"><summary><b>${esc(a.label)}${(a.version||1)>1?` \u00b7 version ${a.version}`:""}</b>${a.superseded?`<span class="pill warn">Superseded</span>`:state.correcting===a.id?`<span class="pill warn">Being corrected</span>`:""}<span class="sum">${fmtC(a.gross)}</span></summary>
+    <p class="hint">Closed ${esc(new Date(a.closedAt).toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}))}${a.closedBy?" by "+esc(a.closedBy):""}. Locked.${a.superseded?" Replaced by a corrected version, kept for the record.":""}${a.reason?" Reason for correction: "+esc(a.reason)+".":""}</p>
+    <div class="trips">
+      <div class="tr"><span>Gross catch value</span><span class="sum">${fmtC(a.gross)}</span></div>
+      <div class="tr"><span>Expenses before split</span><span class="sum">${fmtC(-a.shared)}</span></div>
+      <div class="tr"><span>Crew pool (${pctTxt(a.pct)} %)</span><span class="sum">${fmtC(a.pool)}</span></div>
+      <div class="tr"><span>${a.fixed?"Fixed number of shares":"Total crew shares"}</span><span class="sum">${shTxt(a.divShares)}</span></div>
+      <div class="tr tot"><span>Value per share</span><span class="sum">${fmtC(a.perShare)}</span></div>
+      ${a.crew.map((c,j)=>`<div class="tr"><span>${esc(c.name||"Unnamed")} \u00b7 ${shTxt(c.share)}${esc(c.days||"")}</span><span class="acts"><span class="sum">${fmtC(c.pay)}</span><button class="copy" data-acopy="${a.id}" data-j="${j}">Copy slip</button></span></div>`).join("")}
+    </div>
+    <button class="step" data-acsv="${a.id}">Download this version (CSV)</button>
+    ${!a.superseded&&!state.correcting?`<button class="step" data-correct="${a.id}">Create correction</button>`:""}</details>`).join(""):`<p class="hint">No closed trips yet.</p>`;
+  const bn=$("corrBanner");if(bn){const a=A.find(x=>x.id===state.correcting);bn.hidden=!a;if(a)bn.innerHTML=`<strong>Correcting \u201c${esc(a.label)}\u201d, version ${(a.version||1)+1}.</strong> Fix what was wrong, check the numbers, and close the trip again. The original stays under Closed trips, marked Superseded.`}
+}
 function yearRows(r){
   return state.crew.map((c,i)=>{
     const p=r.people[i];
@@ -911,7 +959,7 @@ function markSent(){
 function renderYE(r){
   const Y=taxYear();
   $("yeYear").textContent="Tax year "+Y;
-  $("yeDeadline").textContent=`Filing deadlines your accountant works to for tax year ${Y}: copies to crew by January 31, ${Y+1}; e-file with the IRS by March 31, ${Y+1}.`;
+  $("yeDeadline").textContent=`Usual filing deadlines for tax year ${Y}: copies to crew by January 31, ${Y+1}; paper filing with the IRS by the end of February, or e-file by March 31, ${Y+1}. A deadline on a weekend or holiday moves to the next business day. Box 5 amounts are reported whatever the size. Your accountant confirms the exact dates.`;
   const el=eligibility(),rows=yearRows(r),now=Date.now();
   // after the report is sent, changes are logged, never overwritten
   if(ye.sent){
@@ -925,7 +973,7 @@ function renderYE(r){
     });
   }
   $("yeElig").innerHTML=el.ok
-    ?`<span class="pill ok">Potentially eligible for fishing-crew treatment</span><span class="hint">Average operating crew in the preceding four calendar quarters: ${esc(el.raw)} (fewer than 10).</span>`
+    ?`<span class="pill ok">Appears eligible for Box 5 \u2013 your accountant must confirm</span><span class="hint">Box 5 needs all of these to be true:</span><ul class="hint b5"><li>\u2713 The operating crew normally has fewer than 10 people (you entered an average of ${esc(el.raw)} for the preceding four calendar quarters).</li><li>Each crew member is paid a share of the catch or of the catch proceeds.</li><li>The share depends on the size of the catch.</li><li>No other cash pay, except up to $100 per trip that depends on a minimum catch and is paid only for extra duties such as mate, engineer or cook.</li></ul>`
     :`<span class="pill warn">1099-MISC Box 5 eligibility requires review</span><span class="hint">${el.raw===""?"Enter the average operating crew above. ":`Average operating crew: ${esc(el.raw)}. `}This crew arrangement may require employee/W-2 treatment. Confirm with a qualified tax professional.</span>`;
   $("yeList").innerHTML=rows.map(x=>{
     const c=x.c,[wl,wc]=W9[c.tinStatus]||W9.missing;
@@ -936,7 +984,7 @@ function renderYE(r){
       <div class="ye-head">
         <div class="who"><b>${esc(c.name||"Unnamed")}</b><span>${esc(c.role)}${!(c.prior||[]).length?" \u00b7 first trip this year":""}</span></div>
         <div class="tinbox"><span class="tstat ${wc}">${wl}</span>
-          ${c.tinStatus!=="ok"?`<button class="w9" data-w9="${x.i}">${c.tinStatus==="missing"?"Mark W-9 received (demo)":"Mark W-9 checked (demo)"}</button>`:""}</div>
+          ${c.tinStatus!=="ok"?`<button class="w9" data-w9="${x.i}">${c.tinStatus==="missing"?"Mark W-9 received":"Mark W-9 checked"}</button>`:""}</div>
         ${pill}
       </div>
       ${c.tinStatus==="missing"?`<p class="warn small">Backup withholding may be required. Review before making further payments.</p>`:""}
@@ -981,8 +1029,9 @@ async function download(name,text,type){
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);
   return true;
 }
+const corrTag=()=>{const a=state.correcting&&(state.archive||[]).find(x=>x.id===state.correcting);return a?`-v${(a.version||1)+1}-correction-NOT-CLOSED`:""};
 const slug=s=>String(s||"").replace(/[^A-Za-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40)||"trip";
-function exStatus(msg){const st=$("exStatus");st.hidden=false;st.className="status ok";st.textContent=msg;st.focus()}
+function exStatus(msg,bad){const st=$("exStatus");st.hidden=false;st.className="status "+(bad?"err":"ok");st.textContent=msg;st.focus()}
 function settlementCSV(){
   const r=run(),trip=curTrip(),vessel=$("vessel").value;
   const rows=[["Vessel","Trip","Date","Section","Description","Crew member","Amount (USD)"]];
@@ -1002,6 +1051,28 @@ function settlementCSV(){
     c.deds.forEach(d=>add("Deduction",d.type,who,-cents(d.amt)));
     add("Net pay","Pay",who,p.pay);
   });
+  return csvOf(rows);
+}
+function archiveCSV(a){
+  const v=a.version||1,nx=a.superseded?(state.archive||[]).find(x=>x.id===a.supersededBy):null;
+  const status=a.superseded?`SUPERSEDED by version ${nx?nx.version:v+1} – not valid`:"Current";
+  const rows=[["Vessel","Trip","Version","Status","Date","Section","Description","Crew member","Amount (USD)"]];
+  const add=(sec,desc,who,c)=>rows.push([a.vessel,a.label,v,status,toISO(a.date),sec,desc,who,money(c)]);
+  if(a.reason)add("Correction",`Reason: ${a.reason}`,"",0);
+  add("Closed",`${a.closedAt}${a.closedBy?" by "+a.closedBy:""}`,"",0);
+  a.tickets.forEach(t=>t.lines.forEach(l=>add("Fish ticket",`${tName(t)} · ${l.name} · ${num(l.lbs)} lb @ ${num(l.price)}`,"",lineC(l))));
+  add("Total","Gross catch value","",a.gross);
+  a.exp.forEach(e=>add("Expense",`${e.name} (${e.to||"shared"})`,"",cents(e.amt)));
+  a.gear.forEach(g=>add("Lost gear",`${g.item} (${g.to||"shared"})`,"",gearC(g)));
+  add("Total","Expenses before split","",a.shared);
+  add("Total",`Crew pool (${pctTxt(a.pct)} %)`,"",a.pool);
+  add("Total",a.fixed?`Pool divided by a fixed ${shTxt(a.divShares)} shares`:`Pool divided by ${shTxt(a.divShares)} shares on board`,"",0);
+  if(a.unused)add("Total","Unused shares to vessel/owner","",a.unused);
+  add("Total","Vessel/owner share","",a.vesselNet);
+  a.crew.forEach(c=>{const who=c.name||"Unnamed";
+    add("Crew share",`${c.role} · ${shTxt(c.share)} shares${c.days||""}`,who,c.shareC);
+    (c.deds||[]).forEach(d=>add("Deduction",d.type,who,-cents(d.amt)));
+    add("Net pay","Pay",who,c.pay)});
   return csvOf(rows);
 }
 function qboCSV(){
@@ -1032,23 +1103,25 @@ function qboCSV(){
 }
 function saveSeason(){
   const data={app:"CrewSettle prototype",version:2,savedAt:new Date().toISOString(),
-    fields:Object.fromEntries(["vessel","trip","port","date","tripDays","crewPct","avgCrew","qbNo","qbShare","qbPay","qbAdv","qbDed","qbAR","qbSales","qbExp","qbAP"].map(id=>[id,$(id).value])),
+    fields:Object.fromEntries(["vessel","trip","port","date","tripDays","crewPct","poolDiv","poolFixed","avgCrew","qbNo","qbShare","qbPay","qbAdv","qbDed","qbAR","qbSales","qbExp","qbAP"].map(id=>[id,$(id).value])),
     qbFull:$("qbFull").checked,
     state:{...state,tickets:state.tickets.map(t=>({...t,photos:[]})),exp:state.exp.map(e=>({...e,photos:[]}))}};
-  download(`CrewSettle-${slug($("vessel").value)}-${todayISO()}.json`,JSON.stringify(data,null,1),"application/json").then(ok=>{if(ok)exStatus("Backup saved. Photos are not included, only the numbers. Open it again with “Open backup”.")});
+  download(`CrewSettle-${slug($("vessel").value)}-${todayISO()}.json`,JSON.stringify(data,null,1),"application/json").then(ok=>{if(ok)exStatus("Backup saved. It contains confidential crew pay information, so store and share it securely. Photos are not included. Open it again with “Open backup”.")});
 
 }
 function seasonData(){
   return{app:"CrewSettle",version:2,savedAt:new Date().toISOString(),
-    fields:Object.fromEntries(["vessel","trip","port","date","tripDays","crewPct","avgCrew","qbNo","qbShare","qbPay","qbAdv","qbDed","qbAR","qbSales","qbExp","qbAP"].map(id=>[id,$(id).value])),
+    fields:Object.fromEntries(["vessel","trip","port","date","tripDays","crewPct","poolDiv","poolFixed","avgCrew","qbNo","qbShare","qbPay","qbAdv","qbDed","qbAR","qbSales","qbExp","qbAP"].map(id=>[id,$(id).value])),
     qbFull:$("qbFull").checked,
     state:{...state,tickets:state.tickets.map(t=>({...t,photos:[]})),exp:state.exp.map(e=>({...e,photos:[]}))}};
 }
 function applySeason(d){
   if(!d||!d.state||!Array.isArray(d.state.crew))throw 0;
-  ["tickets","exp","gear","crew"].forEach(k=>state[k]=Array.isArray(d.state[k])?d.state[k]:[]);
-  state.crew.forEach(c=>{c.deds=c.deds||[];c.prior=c.prior||[]});
+  ["tickets","exp","gear","crew","archive"].forEach(k=>state[k]=Array.isArray(d.state[k])?d.state[k]:[]);
+  state.correcting=d.state.correcting||"";state.corrReason=d.state.corrReason||"";
+  state.crew.forEach(c=>{c.deds=c.deds||[];c.prior=c.prior||[];if(!c.cid)c.cid=newCid()});
   Object.entries(d.fields||{}).forEach(([id,v])=>{const el=$(id);if(el)el.value=id==="date"?(toISO(v)||""):v});
+  syncPoolUI();
   $("qbFull").checked=!!d.qbFull;$("qbFullBox").hidden=!d.qbFull;
   ui.expOpen.clear();ui.tOpen.clear();ye.sent=null;
   renderLines();renderResults();
@@ -1066,12 +1139,32 @@ function openSeason(file){
 }
 function closeTrip(){
   const r=run(),label=curTrip();
-  if(!state.crew.some(c=>!c.off)){exStatus("Add the crew before closing the trip.");return}
-  if(r.people.some(p=>p.pay<0)){exStatus("Someone's deductions are larger than their share. Fix that before closing the trip.");return}
-  if(!confirm(`Close “${label}”? Each crew member's share is added to the year-to-date totals, and the fish tickets, expenses, lost gear and personal deductions are cleared. Download a backup first if you want a copy of this trip.`))return;
+  if(!state.crew.some(c=>!c.off)){exStatus("Add the crew before closing the trip.",1);return}
+  if(r.people.some(p=>p.pay<0)){exStatus("Someone's deductions are larger than their share. Fix that before closing the trip.",1);return}
+  const unT=state.tickets.filter(o=>o.status==="scanned").map(t=>"Fish ticket "+(t.no?"#"+t.no:"")+(t.label?" ("+t.label+")":"")),
+        unE=state.exp.filter(o=>o.status==="scanned").map(e=>"Receipt: "+(e.name||"Unnamed expense")+" "+fmtC(cents(e.amt)));
+  const un=[...unT,...unE];
+  if(un.length){exStatus(`Cannot close yet. Not checked: ${un.join("; ")}. Check the numbers against the photo or the paper copy and tap “Numbers checked”.`,1);return}
+  const np=[];state.tickets.forEach(t=>t.lines.forEach(l=>{if(num(l.lbs)>0&&num(l.price)<=0)np.push(`${l.name||"Unnamed line"} on ticket ${t.no?"#"+t.no:t.label||""}`.trim())}));
+  if(np.length){exStatus(`Cannot close yet. No price: ${np.join("; ")}. Fill in the price per lb from the buyer's settlement.`,1);return}
+  if(!confirm(`Close “${label}”? The settlement is saved under Closed trips and can no longer be changed. Each crew member's share is added to the year-to-date totals, and the fish tickets, expenses, lost gear and personal deductions are cleared for the next trip.`))return;
+  state.crew.forEach(c=>{if(!c.cid)c.cid=newCid()});
+  const act=state.crew.map((c,i)=>[c,i]).filter(([c])=>!c.off);
+  const prev=state.correcting?(state.archive||[]).find(x=>x.id===state.correcting):null;
+  const aid=Date.now().toString(36);
+  if(prev){prev.superseded=true;prev.supersededBy=aid}
+  state.archive=[...(state.archive||[]),{
+    id:aid,version:prev?(prev.version||1)+1:1,correctionOf:prev?prev.id:"",reason:prev?state.corrReason||"":"",closedAt:new Date().toISOString(),closedBy:(typeof cs!=="undefined"&&cs.user&&cs.user.email)||"",
+    label,vessel:$("vessel").value,trip:$("trip").value,port:$("port").value,date:$("date").value,tripDays:$("tripDays").value,
+    pct:r.pct,fixed:r.fixed,divShares:r.divShares,totalShares:r.totalShares,gross:r.gross,shared:r.shared,vesselOnly:r.vesselOnly,crewOnly:r.crewOnly,
+    basis:r.basis,pool:r.pool,vesselNet:r.vessel,unused:r.unused,perShare:Math.round(r.perShareExact*100),
+    tickets:JSON.parse(JSON.stringify(state.tickets.map(t=>({...t,photos:[]})))),exp:JSON.parse(JSON.stringify(state.exp.map(e=>({...e,photos:[]})))),gear:JSON.parse(JSON.stringify(state.gear)),
+    crew:act.map(([c,i])=>({cid:c.cid,name:c.name,role:c.role,share:num(c.share),days:daysTxt(c),deds:JSON.parse(JSON.stringify(c.deds)),shareC:r.people[i].share,ded:r.people[i].ded,pay:r.people[i].pay})),
+    slips:act.map(([c,i])=>slipText(i,r))
+  }];
   state.crew.forEach((c,i)=>{
     const p=r.people[i],adv=c.deds.filter(d=>d.type==="Advance").reduce((s,d)=>s+cents(d.amt),0);
-    if(!c.off)c.prior=[...(c.prior||[]),{trip:label,box5:p.share,ded:p.ded-adv,adv}];
+    if(!c.off)c.prior=[...(c.prior||[]),{trip:label+(prev?` (corrected, v${(prev.version||1)+1})`:""),box5:p.share,ded:p.ded-adv,adv,aid}];
     c.deds=[];c.days="";
   });
   state.tickets=[];state.exp=[];state.gear=[];$("tripDays").value="";
@@ -1079,8 +1172,10 @@ function closeTrip(){
   $("trip").value=m?m[1]+(+m[2]+1):($("trip").value?$("trip").value+" (next)":"Next trip");
   $("date").value="";
   const n=$("qbNo").value.match(/^(.*?)(\d+)$/);if(n)$("qbNo").value=n[1]+(+n[2]+1);
+  const wasCorr=!!prev;state.correcting="";state.corrReason="";
   ui.expOpen.clear();ui.tOpen.clear();
   renderLines();renderResults();
+  if(wasCorr){exStatus(`The corrected settlement for “${label}” is closed as version ${(prev.version||1)+1}. The original is kept and marked Superseded.`);return}
   exStatus(`“${label}” is closed and added to the year-to-date totals. Add the fish tickets for the next trip.`);
 }
 document.addEventListener("input",e=>{
@@ -1094,7 +1189,8 @@ document.addEventListener("input",e=>{
       if(f==="qty"||f==="price"){const q=num(e.qty),pr=num(e.price);if(q>0&&pr>0){e.amt=Math.round(q*pr*100)/100;const a=$("e-amt-"+ix);if(a)a.value=e.amt}}
       else if(f==="amt"&&num(e.price)>0){e.price="";const pe=$("e-price-"+ix);if(pe)pe.value=""}}}
   else if(t.dataset.ded!==undefined){state.crew[+t.dataset.ded].deds[+t.dataset.j][t.dataset.f]=t.value}
-  else if(!["crewPct","avgCrew","date","trip","tripDays"].includes(t.id)) return;
+  else if(!["crewPct","avgCrew","date","trip","tripDays","poolDiv","poolFixed"].includes(t.id)) return;
+  if(t.id==="poolDiv")syncPoolUI();
   renderResults();
 });
 document.addEventListener("change",e=>{
@@ -1149,15 +1245,40 @@ document.addEventListener("click",e=>{
   else if(t.id==="addExp"){state.exp.push({name:"",amt:0,to:"shared",crewPct:50});ui.expOpen.add(state.exp.length-1);focusSel=`#e-name-${state.exp.length-1}`}
   else if(t.id==="addGear"){state.gear.push({item:"",qty:1,unit:"each",cost:0,to:"shared",crewPct:50});focusSel=`#g-item-${state.gear.length-1}`}
   else if(t.dataset.onboard!==undefined){const c=state.crew[+t.dataset.onboard];c.off=false;c.days=""}
-  else if(t.dataset.purge!==undefined){const c=state.crew[+t.dataset.purge],n=c.name||"this crew member",tot=(c.prior||[]).reduce((s,x)=>s+x.box5,0);if(!confirm(tot>0?`Remove ${n} for good?\n\nOnly do this after this year's 1099 report has gone to your accountant. ${n}'s earnings this year (${fmtC(tot)}) will be removed from the report.`:`Remove ${n} for good?`))return;state.crew.splice(+t.dataset.purge,1);ui.offOpen=true}
-  else if(t.id==="addCrew"){state.crew.push({name:"",role:"Deckhand",share:1,deds:[],tin:null,tinStatus:"missing",prior:[]});focusSel=`#m-name-${state.crew.length-1}`}
-  else if(t.dataset.w9!==undefined){const c=state.crew[+t.dataset.w9];if(!c.tin)c.tin=String(1000+Math.floor(Math.random()*9000));c.tinStatus="ok";renderResults();const b=$("ye1");if(b)b.focus();return}
-  else if(t.id==="exCsv"){download(`CrewSettle-${slug(curTrip())}-settlement.csv`,settlementCSV(),"text/csv").then(ok=>{if(ok)exStatus("Settlement CSV saved. It opens in Excel or Google Sheets.")});return}
-  else if(t.id==="exQbo"){const q=qboCSV();if(!q.balanced||q.neg){exStatus(q.neg?"Someone's deductions are larger than their share. Fix that before exporting.":"The journal does not balance. Check the numbers before exporting.");return}download(`CrewSettle-${slug(curTrip())}-quickbooks-journal-DRAFT.csv`,q.csv,"text/csv").then(ok=>{if(ok)exStatus(`QuickBooks journal saved (draft). Debits ${fmtC(q.d)} = credits ${fmtC(q.k)}. Import into a test file first.`)});return}
+  else if(t.dataset.purge!==undefined){const c=state.crew[+t.dataset.purge];if(hasHistory(c))return;if(!confirm(`Delete ${c.name||"this crew member"}? They are not in any closed trip, so nothing else is lost.`))return;state.crew.splice(+t.dataset.purge,1);ui.offOpen=true}
+  else if(t.id==="addCrew"){state.crew.push({cid:newCid(),name:"",role:"Deckhand",share:1,deds:[],tin:null,tinStatus:"missing",prior:[]});focusSel=`#m-name-${state.crew.length-1}`}
+  else if(t.dataset.w9!==undefined){const c=state.crew[+t.dataset.w9];c.tinStatus="ok";renderResults();return}
+  else if(t.id==="exCsv"){download(`CrewSettle-${slug(curTrip())}${corrTag()}-settlement.csv`,settlementCSV(),"text/csv").then(ok=>{if(ok)exStatus("Settlement CSV saved. It opens in Excel or Google Sheets.")});return}
+  else if(t.id==="exQbo"){const q=qboCSV();if(!q.balanced||q.neg){exStatus(q.neg?"Someone's deductions are larger than their share. Fix that before exporting.":"The journal does not balance. Check the numbers before exporting.");return}download(`CrewSettle-${slug(curTrip())}${corrTag()}-quickbooks-journal-DRAFT.csv`,q.csv,"text/csv").then(ok=>{if(ok)exStatus(`QuickBooks journal saved (draft). Debits ${fmtC(q.d)} = credits ${fmtC(q.k)}. Import into a test file first.`)});return}
   else if(t.id==="exSave"){saveSeason();return}
   else if(t.id==="exClose"){closeTrip();return}
   else if(t.id==="ye1"){copyReport();return}
   else if(t.id==="ye2"){markSent();return}
+  else if(t.dataset.correct!==undefined){
+    const a=(state.archive||[]).find(x=>x.id===t.dataset.correct);if(!a||a.superseded||state.correcting)return;
+    if(state.tickets.length||state.exp.length||state.gear.length){exStatus("Finish and close the trip you are working on first, or remove its tickets and expenses, before correcting an earlier trip.",1);return}
+    const reason=prompt(`Correct \u201c${a.label}\u201d?\n\nThe original stays under Closed trips, marked Superseded. Its shares are taken out of the year-to-date totals until you close the corrected version.\n\nWhat needs correcting?`,"");
+    if(reason===null)return;
+    state.correcting=a.id;state.corrReason=reason.trim();
+    state.tickets=JSON.parse(JSON.stringify(a.tickets));state.exp=JSON.parse(JSON.stringify(a.exp));state.gear=JSON.parse(JSON.stringify(a.gear));
+    $("trip").value=a.trip;$("port").value=a.port;$("date").value=a.date;$("tripDays").value=a.tripDays||"";$("crewPct").value=a.pct;
+    $("poolDiv").value=a.fixed?"fixed":"";$("poolFixed").value=a.fixed?a.divShares:"";syncPoolUI();
+    state.crew.forEach(c=>{c.prior=(c.prior||[]).filter(x=>x.aid!==a.id);if(!c.archived){c.off=true;c.deds=[];c.days=""}});
+    a.crew.forEach(x=>{let c=(x.cid&&state.crew.find(y=>y.cid===x.cid))||state.crew.find(y=>y.name===x.name);if(!c){c={cid:x.cid||newCid(),name:x.name,role:x.role,share:x.share,deds:[],tin:null,tinStatus:"missing",prior:[]};state.crew.push(c)}
+      c.off=false;c.archived=false;c.role=x.role;c.share=x.share;c.deds=JSON.parse(JSON.stringify(x.deds||[]));const m=String(x.days||"").match(/\u00d7\s*([\d.]+)\//);c.days=m?m[1]:""});
+    ui.expOpen.clear();ui.tOpen.clear();renderLines();renderResults();setTab("tickets");return;
+  }
+  else if(t.dataset.archivecrew!==undefined){const c=state.crew[+t.dataset.archivecrew];c.archived=true;c.off=true}
+  else if(t.dataset.restorecrew!==undefined){const c=state.crew[+t.dataset.restorecrew];c.archived=false;c.off=true;ui.offOpen=true}
+  else if(t.dataset.acsv!==undefined){const a=(state.archive||[]).find(x=>x.id===t.dataset.acsv);if(!a)return;
+    download(`CrewSettle-${slug(a.label)}-v${a.version||1}${a.superseded?"-SUPERSEDED":""}-settlement.csv`,archiveCSV(a),"text/csv").then(ok=>{if(ok)exStatus(a.superseded?`Version ${a.version||1} saved. It is superseded and marked so in the file. Do not send it as the current settlement.`:`Version ${a.version||1} of “${a.label}” saved. This is the current version.`)});return}
+  else if(t.dataset.acopy!==undefined){
+    const a=(state.archive||[]).find(x=>x.id===t.dataset.acopy);let text=a&&a.slips[+t.dataset.j];if(!text)return;
+    if(a.superseded){const nx=(state.archive||[]).find(x=>x.id===a.supersededBy);text=`SUPERSEDED – NOT VALID. Replaced by version ${nx?nx.version:(a.version||1)+1}.\n\n`+text}
+    const done=()=>{t.textContent="Copied";setTimeout(()=>t.textContent="Copy slip",1500)};
+    try{navigator.clipboard.writeText(text).then(done).catch(()=>{fallback(text);done()})}catch(_){fallback(text);done()}
+    return;
+  }
   else if(t.dataset.copy!==undefined){
     const text=slipText(+t.dataset.copy,run());
     const done=()=>{t.textContent="Copied";setTimeout(()=>t.textContent="Copy slip",1500)};
@@ -1345,7 +1466,7 @@ function gMsg(t,kind){const m=g("gMsg");m.textContent=t||"";m.className="msg"+(k
 function gStep(s){["Email","Code","Boat"].forEach(k=>g("gStep"+k).hidden=k!==s)}
 function cloudState(t,kind){const e=g("cloudState");e.textContent=t;e.className=kind||""}
 function blankSeason(name){
-  state.tickets=[];state.exp=[];state.gear=[];state.crew=[];
+  state.tickets=[];state.exp=[];state.gear=[];state.crew=[];state.archive=[];state.correcting="";state.corrReason="";$("poolDiv").value="";$("poolFixed").value="";syncPoolUI();
   ["trip","port","date"].forEach(id=>{const el=$(id);if(el)el.value=""});
   $("vessel").value=name||"";
   ui.expOpen.clear();ui.tOpen.clear();ye.sent=null;
@@ -1358,15 +1479,20 @@ async function loadBoat(){
   cs.boat=mem[0].boats;
   const {data:s,error:e2}=await cs.db.from("seasons").select("data,updated_at").eq("boat_id",cs.boat.id).maybeSingle();
   if(e2)throw e2;
+  const migrated=!!(s&&s.data&&s.data.state&&Array.isArray(s.data.state.crew)&&s.data.state.crew.some(c=>!c.cid));
   cs.loading=true;
   try{ if(s&&s.data)applySeason(s.data); else blankSeason(cs.boat.name); }finally{cs.loading=false}
-  cs.lastJson=JSON.stringify(seasonData().state)+JSON.stringify(seasonData().fields);
+  cs.lastJson=migrated?"":JSON.stringify(seasonData().state)+JSON.stringify(seasonData().fields);
+  if(migrated)setTimeout(saveCloud,0);
   g("cbBoat").textContent=cs.boat.name;g("cbUser").textContent=cs.user.email||"";
   g("cloudbar").hidden=false;g("gate").hidden=true;
   cloudState(s?"Saved":"New season","ok");
 }
+const sigNow=()=>{const d=seasonData();return JSON.stringify(d.state)+JSON.stringify(d.fields)};
+const unsaved=()=>!!cs.boat&&sigNow()!==cs.lastJson;
 function scheduleSave(){
   if(!cs.boat||cs.loading)return;
+  if(!cs.saving&&unsaved())cloudState(navigator.onLine===false?"Offline – not saved":"Not saved yet…",navigator.onLine===false?"err":"");
   clearTimeout(cs.timer);cs.timer=setTimeout(saveCloud,1500);
 }
 async function saveCloud(){
@@ -1379,7 +1505,7 @@ async function saveCloud(){
     const {error}=await cs.db.from("seasons").upsert({boat_id:cs.boat.id,data:d,updated_at:new Date().toISOString(),updated_by:cs.user.id});
     if(error)throw error;
     cs.lastJson=sig;cloudState("Saved","ok");
-  }catch(e){cloudState("Not saved, check your connection. Retrying…","err");setTimeout(scheduleSave,8000)}
+  }catch(e){cloudState("Not saved – no connection. Retrying…","err");setTimeout(scheduleSave,8000)}
   finally{cs.saving=false;if(cs.again){cs.again=false;scheduleSave()}}
 }
 const _renderResults=renderResults;
@@ -1434,7 +1560,9 @@ async function onSignedIn(user){
     gMsg("");await loadBoat();
   };
   g("gBoat").addEventListener("keydown",e=>{if(e.key==="Enter")g("gCreate").click()});
-  g("cbOut").onclick=async()=>{await saveCloud().catch(()=>{});await cs.db.auth.signOut();location.reload()};
+  g("cbOut").onclick=async()=>{await saveCloud().catch(()=>{});if(unsaved()&&!confirm("Your latest changes are NOT saved (no connection). If you sign out now, they are lost.\n\nSign out anyway?"))return;await cs.db.auth.signOut();location.reload()};
+  window.addEventListener("offline",()=>{if(cs.boat)cloudState(unsaved()?"Offline – not saved":"Offline","err")});
+  window.addEventListener("online",()=>{if(cs.boat){cloudState(unsaved()?"Back online – saving…":"Saved",unsaved()?"":"ok");scheduleSave()}});
 })();
 </script>
 
