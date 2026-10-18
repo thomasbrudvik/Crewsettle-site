@@ -722,8 +722,8 @@ function renderLines(){
         <button class="add small" data-addded="${i}">+ Add deduction</button>
       </div>
     </div>`).join("")+(offs.length?`
-    <details class="earlier"${ui.offOpen?" open":""}><summary>Earlier crew this year (${offs.length})</summary>
-      <p class="hint">Not on board this trip. Their earnings this year are kept for the 1099 report.</p>
+    <details class="earlier"${ui.offOpen?" open":""}><summary>Not on board this trip (${offs.length})</summary>
+      <p class="hint">Not on board this trip. Tap Back on board to bring someone back. Their earnings this year are kept for the 1099 report.</p>
       ${offs.map(([c,i])=>`<div class="tr"><span>${esc(c.name||"Unnamed")} \u00b7 ${esc(c.role)}</span><span class="acts"><button class="tedit" data-onboard="${i}">Back on board</button><button class="x" data-purge="${i}" aria-label="Remove ${esc(c.name||"crew member")} for good">\u00d7</button></span></div>`).join("")}
     </details>`:"");
 }
@@ -1141,7 +1141,7 @@ document.addEventListener("click",e=>{
   if(t.dataset.confirm){(t.dataset.confirm==="ticket"?state.tickets:state.exp)[+t.dataset.i].status="checked"}
   else if(t.dataset.del==="line"){const tk=state.tickets[+t.dataset.t];tk.lines.splice(+t.dataset.i,1);if(tk.status==="checked")tk.status="scanned"}
   else if(t.dataset.del==="ticket"){state.tickets.splice(+t.dataset.t,1);ui.tOpen.clear()}
-  else if(t.dataset.del){if(t.dataset.del==="crew"){const c=state.crew[+t.dataset.i],n=(c&&c.name||"").trim();if(c&&(c.prior||[]).some(x=>x.box5>0)){c.off=true;c.days="";c.deds=[];ui.offOpen=false;renderLines();renderResults();return}if(n&&!confirm(`Remove ${n} from this trip?\n\nIf ${n} worked part of the trip, keep them and set Days on board instead, so they are paid for the days they worked.`))return}state[t.dataset.del].splice(+t.dataset.i,1);if(t.dataset.del==="exp")ui.expOpen.clear()}
+  else if(t.dataset.del){if(t.dataset.del==="crew"){const c=state.crew[+t.dataset.i];if(c&&(String(c.name||"").trim()||(c.prior||[]).length)){c.off=true;c.days="";c.deds=[];renderLines();renderResults();return}}state[t.dataset.del].splice(+t.dataset.i,1);if(t.dataset.del==="exp")ui.expOpen.clear()}
   else if(t.dataset.addline!==undefined){const ti=+t.dataset.addline;state.tickets[ti].lines.push({name:"",lbs:0,price:0});focusSel=`#c-name-${ti}-${state.tickets[ti].lines.length-1}`}
   else if(t.dataset.delded!==undefined){state.crew[+t.dataset.delded].deds.splice(+t.dataset.j,1)}
   else if(t.dataset.addded!==undefined){const i=+t.dataset.addded;state.crew[i].deds.push({type:"Advance",amt:0});focusSel=`#d-amt-${i}-${state.crew[i].deds.length-1}`}
@@ -1149,7 +1149,7 @@ document.addEventListener("click",e=>{
   else if(t.id==="addExp"){state.exp.push({name:"",amt:0,to:"shared",crewPct:50});ui.expOpen.add(state.exp.length-1);focusSel=`#e-name-${state.exp.length-1}`}
   else if(t.id==="addGear"){state.gear.push({item:"",qty:1,unit:"each",cost:0,to:"shared",crewPct:50});focusSel=`#g-item-${state.gear.length-1}`}
   else if(t.dataset.onboard!==undefined){const c=state.crew[+t.dataset.onboard];c.off=false;c.days=""}
-  else if(t.dataset.purge!==undefined){const c=state.crew[+t.dataset.purge],n=c.name||"this crew member",tot=(c.prior||[]).reduce((s,x)=>s+x.box5,0);if(!confirm(`Remove ${n} for good?\n\nOnly do this after this year's 1099 report has gone to your accountant. ${n}'s earnings this year (${fmtC(tot)}) will be removed from the report.`))return;state.crew.splice(+t.dataset.purge,1);ui.offOpen=true}
+  else if(t.dataset.purge!==undefined){const c=state.crew[+t.dataset.purge],n=c.name||"this crew member",tot=(c.prior||[]).reduce((s,x)=>s+x.box5,0);if(!confirm(tot>0?`Remove ${n} for good?\n\nOnly do this after this year's 1099 report has gone to your accountant. ${n}'s earnings this year (${fmtC(tot)}) will be removed from the report.`:`Remove ${n} for good?`))return;state.crew.splice(+t.dataset.purge,1);ui.offOpen=true}
   else if(t.id==="addCrew"){state.crew.push({name:"",role:"Deckhand",share:1,deds:[],tin:null,tinStatus:"missing",prior:[]});focusSel=`#m-name-${state.crew.length-1}`}
   else if(t.dataset.w9!==undefined){const c=state.crew[+t.dataset.w9];if(!c.tin)c.tin=String(1000+Math.floor(Math.random()*9000));c.tinStatus="ok";renderResults();const b=$("ye1");if(b)b.focus();return}
   else if(t.id==="exCsv"){download(`CrewSettle-${slug(curTrip())}-settlement.csv`,settlementCSV(),"text/csv").then(ok=>{if(ok)exStatus("Settlement CSV saved. It opens in Excel or Google Sheets.")});return}
