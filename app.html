@@ -461,11 +461,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
   <section data-pane="yearend" class="ye">
     <div class="row-head"><h2>1099 preparation report</h2><span class="hint" id="yeYear">Tax year 2026</span></div>
     <p class="notice demo"><strong>Year-end 1099 preparation report &#x2014; review with your accountant before filing.</strong> The app adds up every settlement through the year and prepares the numbers your accountant needs. It does not file anything with the IRS and does not store Social Security numbers. Your accountant or a tax service collects the W-9s and files the 1099-MISC forms.</p>
-    <h3 class="sub">Vessel settings</h3>
-    <div class="trip">
-      <label for="avgCrew">Average operating crew &#x2014; preceding four calendar quarters<input id="avgCrew" class="num" inputmode="decimal" value="" placeholder="e.g. 5"></label>
-    </div>
-    <p class="hint">Used for the 1099-MISC Box 5 check at year end. It is the average size of the operating crew on trips in the four calendar quarters before this one, not the crew on this trip.</p>
+    <input id="avgCrew" type="hidden" value="">
     <div class="elig" id="yeElig"></div>
     <p class="hint">How shared expenses, personal deductions, advances and later price adjustments affect the Box 5 amount must be confirmed by a US fisheries accountant.</p>
     <div class="lines" id="yeList"></div>
@@ -482,7 +478,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
     
   </section>
 
-  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.<br><span class="build">CrewSettle Pilot · build 2026-10-18.2</span></footer>
+  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.<br><span class="build">CrewSettle Pilot · build 2026-10-19.1</span></footer>
 </div>
 <nav class="tabbar" aria-label="Sections"><div class="tabbar-in"><button class="tab" data-tab="tickets" id="tab-tickets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg><span>Fish tickets</span><b class="tabsum" id="tabsum-tickets"></b></button><button class="tab" data-tab="expenses" id="tab-expenses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span>Expenses</span><b class="tabsum" id="tabsum-expenses"></b></button><button class="tab" data-tab="crew" id="tab-crew"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.9.4 5 2.8 5 5.8"/></svg><span>Crew</span><b class="tabsum" id="tabsum-crew"></b></button><button class="tab" data-tab="settlement" id="tab-settlement"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7h14"/><path d="M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/></svg><span>Settlement</span><b class="tabsum" id="tabsum-settlement"></b></button><button class="tab" data-tab="yearend" id="tab-yearend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Year end</span><b class="tabsum" id="tabsum-yearend"></b></button></div></nav>
 <div class="lightbox" id="lightbox" hidden><div><img id="lbImg" alt="Scanned document"><button id="lbClose">Close</button></div></div>
@@ -868,7 +864,7 @@ function renderResults(){
     <div class="rc total"><span>Gross crew pool</span><span class="sum">${fmtC(r.pool)}</span></div>
     <div class="rc"><span>Total personal deductions</span><span class="sum neg">${fmtC(-r.totalDed)}</span></div>
     ${r.unused?`<div class="rc"><span>Unused shares to vessel/owner</span><span class="sum">${fmtC(r.unused)}</span></div>`:""}
-    <div class="rc total"><span>Net amount paid to crew</span><span class="sum">${fmtC(r.netPaid)}</span></div>
+    <div class="rc total"><span>Net pay to crew</span><span class="sum">${fmtC(r.netPaid)}</span></div>
     <div class="rc"><span>Rounding cents allocated<small class="hint" style="display:block">${r.leftover} ${r.leftover===1?"cent":"cents"} placed by the rule below</small></span><span class="sum">${fmtC(r.leftover)}</span></div>
     <div class="rc"><span>Rounding difference remaining</span><span class="sum">${fmtC(r.diff)}</span></div>
     <p class="check${ok?"":" bad"}" style="padding-top:8px"><b>${ok?"\u2713":"\u2715"}</b><span>${ok?`Balances. Vessel/owner net + crew pool + all expenses = gross catch value, and crew shares${r.unused?" + unused shares":""} \u2212 deductions = net paid${r.unused?" + unused shares":""}.`:"Does not balance. Check the inputs."}</span></p>
@@ -919,13 +915,13 @@ function taxYear(){
 const W9={ok:["W-9 collected (kept by your accountant or tax service)","ok"],missing:["W-9 missing","bad"],review:["W-9 details need review","warn"]};
 const tm=d=>d.toLocaleString("en-US",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
 function reportText(){
-  const r=run(),rows=yearRows(r),Y=taxYear(),el=eligibility();
+  const r=run(),rows=yearRows(r),Y=taxYear();
   const L=(a,b)=>(a.length>=33?a+"  ":a.padEnd(34," "))+b;
   const out=[
     `1099 PREPARATION REPORT - tax year ${Y}`,
     `${$("vessel").value}`,
     `Prepared ${new Date().toLocaleDateString("en-US")}. Review with your accountant before filing.`,
-    `Average operating crew, preceding four calendar quarters: ${el.raw||"not entered"}`,
+    `Box 5 (fishing boat proceeds) used for all crew. Accountant to confirm the vessel qualifies.`,
     ``
   ];
   rows.forEach(x=>{
@@ -934,7 +930,7 @@ function reportText(){
     out.push(L("  Box 5 fishing boat proceeds",fmtC(x.box5)));
     out.push(L("  Personal deductions",fmtC(-x.ded)));
     out.push(L("  Advances already paid",fmtC(-x.adv)));
-    out.push(L("  Net amount paid",fmtC(x.net)));
+    out.push(L("  Net pay (per settlements)",fmtC(x.net)));
     out.push("");
   });
   out.push(L("Total Box 5, all crew",fmtC(rows.reduce((s,x)=>s+x.box5,0))));
@@ -972,9 +968,7 @@ function renderYE(r){
       }
     });
   }
-  $("yeElig").innerHTML=el.ok
-    ?`<span class="pill ok">Appears eligible for Box 5 \u2013 your accountant must confirm</span><span class="hint">Box 5 needs all of these to be true:</span><ul class="hint b5"><li>\u2713 The operating crew normally has fewer than 10 people (you entered an average of ${esc(el.raw)} for the preceding four calendar quarters).</li><li>Each crew member is paid a share of the catch or of the catch proceeds.</li><li>The share depends on the size of the catch.</li><li>No other cash pay, except up to $100 per trip that depends on a minimum catch and is paid only for extra duties such as mate, engineer or cook.</li></ul>`
-    :`<span class="pill warn">1099-MISC Box 5 eligibility requires review</span><span class="hint">${el.raw===""?"Enter the average operating crew above. ":`Average operating crew: ${esc(el.raw)}. `}This crew arrangement may require employee/W-2 treatment. Confirm with a qualified tax professional.</span>`;
+  $("yeElig").innerHTML=`<span class="pill warn">Box 5 – your accountant confirms</span><span class="hint">The amounts below are reported as fishing boat proceeds (1099-MISC Box 5). Your accountant checks that the boat qualifies: crew normally fewer than 10, everyone paid a share of the catch, and no other cash pay except up to $100 per trip for extra duties.</span>`;
   $("yeList").innerHTML=rows.map(x=>{
     const c=x.c,[wl,wc]=W9[c.tinStatus]||W9.missing;
     const was=ye.sent?ye.sent.amts[x.i]:undefined,changed=was!==undefined&&was!==x.box5;
@@ -992,7 +986,7 @@ function renderYE(r){
         <div class="amt box5"><span>Box 5 fishing boat proceeds (draft)</span><b class="sum">${fmtC(x.box5)}</b></div>
         <div class="amt"><span>Personal deductions</span><b class="sum">${fmtC(-x.ded)}</b></div>
         <div class="amt"><span>Advances already paid</span><b class="sum">${fmtC(-x.adv)}</b></div>
-        <div class="amt"><span>Net amount paid</span><b class="sum">${fmtC(x.net)}</b></div>
+        <div class="amt"><span>Net pay (per settlements)</span><b class="sum">${fmtC(x.net)}</b></div>
       </div>
       ${changed?`<div class="corr"><p><b>Changed since the report was sent to your accountant.</b> Previous: <span class="sum">${fmtC(was)}</span> \u00b7 Revised: <span class="sum">${fmtC(x.box5)}</span> (${x.box5>was?"+":"\u2212"}${fmtC(Math.abs(x.box5-was))})</p><p>Send an updated report so your accountant uses the revised amount.</p></div>`:""}
       <details data-open="${x.i}"${ye.open.has(x.i)?" open":""}><summary>Box 5 by trip \u2014 check before sending</summary>
@@ -1002,7 +996,7 @@ function renderYE(r){
       </details>
     </div>`}).join("");
   const S=k=>rows.reduce((s,x)=>s+x[k],0);
-  $("yeTotals").innerHTML=`<div class="amt box5"><span>Total Box 5, all crew</span><b class="sum">${fmtC(S("box5"))}</b></div><div class="amt"><span>Personal deductions</span><b class="sum">${fmtC(-S("ded"))}</b></div><div class="amt"><span>Advances already paid</span><b class="sum">${fmtC(-S("adv"))}</b></div><div class="amt"><span>Net amount paid</span><b class="sum">${fmtC(S("net"))}</b></div>`;
+  $("yeTotals").innerHTML=`<div class="amt box5"><span>Total Box 5, all crew</span><b class="sum">${fmtC(S("box5"))}</b></div><div class="amt"><span>Personal deductions</span><b class="sum">${fmtC(-S("ded"))}</b></div><div class="amt"><span>Advances already paid</span><b class="sum">${fmtC(-S("adv"))}</b></div><div class="amt"><span>Net pay (per settlements)</span><b class="sum">${fmtC(S("net"))}</b></div>`;
   const missing=rows.filter(x=>x.c.tinStatus==="missing"),changedAny=ye.sent?rows.filter(x=>ye.sent.amts[x.i]!==undefined&&ye.sent.amts[x.i]!==x.box5):[];
   const w=$("yeWarn");
   const parts=[];
