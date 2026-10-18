@@ -132,6 +132,7 @@ details.acct{margin:0}details.acct>summary{cursor:pointer;font-weight:700;paddin
 .ye-totals{padding-top:4px}
 details summary{cursor:pointer;font-size:.85rem;color:var(--accent);font-weight:600}
 .trips{display:grid;margin-top:6px;border-top:1px solid var(--line)}
+details.earlier{margin-top:6px;border-top:1px solid var(--line);padding-top:10px}details.earlier .tr{align-items:center;padding:6px 0}
 .tr{display:flex;justify-content:space-between;gap:10px;font-size:.85rem;padding:4px 0;border-bottom:1px dashed var(--line)}
 .tr.cur{font-weight:600}.tr.tot{font-weight:600;border-bottom-style:solid}
 .corr{border:1px solid var(--neg);border-radius:6px;padding:8px 10px;display:grid;gap:6px;justify-items:start;font-size:.85rem}
@@ -515,7 +516,7 @@ const dateTxt=v=>{v=v||"";if(/^\d{4}-\d{2}-\d{2}$/.test(v)){const d=new Date(v+"
 const curTrip=()=>($("trip").value||"This trip")+($("date").value?" \u00b7 "+dateTxt($("date").value):"");
 const thisTripLabel=()=>curTrip()+" (this trip)";
 const ye={sent:null,open:new Set()};
-document.addEventListener("toggle",e=>{const d=e.target;if(d.dataset&&d.dataset.open!==undefined){d.open?ye.open.add(+d.dataset.open):ye.open.delete(+d.dataset.open)}},true);
+document.addEventListener("toggle",e=>{const d=e.target;if(d.classList&&d.classList.contains("earlier"))ui.offOpen=d.open;if(d.dataset&&d.dataset.open!==undefined){d.open?ye.open.add(+d.dataset.open):ye.open.delete(+d.dataset.open)}},true);
 
 /* ---- settlement core: whole cents throughout ---- */
 const num=v=>{let t=String(v??"").trim().replace(/[\s$]/g,"");
@@ -593,7 +594,7 @@ const tripDaysN=()=>{const d=num($("tripDays").value);return d>0?d:0};
 const daysOf=c=>{const T=tripDaysN();if(!T)return null;const v=String(c.days??"").trim();if(v==="")return T;return Math.min(T,Math.max(0,num(v)))};
 const effShare=c=>{const T=tripDaysN(),d=daysOf(c);return T&&d!=null?num(c.share)*d/T:num(c.share)};
 const daysTxt=c=>{const T=tripDaysN(),d=daysOf(c);return T&&d!=null&&d<T?` \u00d7 ${d}/${T} days`:""};
-const run=()=>settle(allLines(),[...state.exp,...gearAsExp()],state.crew.map(c=>({...c,share:effShare(c)})),$("crewPct").value);
+const run=()=>settle(allLines(),[...state.exp,...gearAsExp()],state.crew.map(c=>c.off?{...c,share:0,deds:[]}:{...c,share:effShare(c)}),$("crewPct").value);
 const lineC=c=>Math.round(num(c.lbs)*num(c.price)*100);
 const BADGE={example:["Example",""],manual:["Typed in",""],scanned:["Scanned \u00b7 check against photo","check"],checked:["Checked against photo","ok"]};
 const thumbs=ph=>ph.length?`<span class="thumbs">${ph.map((u,k)=>`<button class="thumb" data-photo="${u}" aria-label="View photo ${k+1}"><img src="${u}" alt=""></button>`).join("")}</span>`:"";
@@ -698,7 +699,8 @@ function renderLines(){
           <span>% \u00b7 vessel/owner pays <b id="g-vpct-${i}"></b> %</span></span>`:""}
       </div>
     </div>`).join(""):`<p class="hint">No lost gear on this trip.</p>`;
-  $("crewLines").innerHTML=state.crew.map((c,i)=>`
+  const offs=state.crew.map((c,i)=>[c,i]).filter(([c])=>c.off);
+  $("crewLines").innerHTML=state.crew.map((c,i)=>c.off?"":`
     <div class="member">
       <div class="line crew-row">
         ${cell("Name",`<input id="m-name-${i}" data-k="crew" data-i="${i}" data-f="name" value="${esc(c.name)}">`,"m-name")}
@@ -719,7 +721,11 @@ function renderLines(){
           </div>`).join("")}
         <button class="add small" data-addded="${i}">+ Add deduction</button>
       </div>
-    </div>`).join("");
+    </div>`).join("")+(offs.length?`
+    <details class="earlier"${ui.offOpen?" open":""}><summary>Earlier crew this year (${offs.length})</summary>
+      <p class="hint">Not on board this trip. Their earnings this year are kept for the 1099 report.</p>
+      ${offs.map(([c,i])=>`<div class="tr"><span>${esc(c.name||"Unnamed")} \u00b7 ${esc(c.role)}</span><span class="acts"><button class="tedit" data-onboard="${i}">Back on board</button><button class="x" data-purge="${i}" aria-label="Remove ${esc(c.name||"crew member")} for good">\u00d7</button></span></div>`).join("")}
+    </details>`:"");
 }
 
 function slipText(i,r){
@@ -730,7 +736,7 @@ function slipText(i,r){
     `Landed ${dateTxt($("date").value)}, ${$("port").value}`,
     ``,
     `${c.name} (${c.role})`,
-    L(`Gross catch value (${state.tickets.length} fish tickets):`,fmtC(r.gross)),
+    L(`Gross catch value (${state.tickets.length} fish ticket${state.tickets.length===1?"":"s"}):`,fmtC(r.gross)),
     L("Expenses before split:","\u2212"+fmtC(r.shared).replace("\u2212","")),
     L("Settlement basis:",fmtC(r.basis)),
     ...(r.crewOnly?[L(`Crew share (${pctTxt(r.pct)} %):`,fmtC(r.crewBase)),L("Expenses charged to crew:","\u2212"+fmtC(r.crewOnly).replace("\u2212","")),L("Crew pool:",fmtC(r.pool))]
@@ -742,7 +748,7 @@ function slipText(i,r){
     L("PAY:",fmtC(p.pay)),
     ``,
     `Shares on board this trip:`,
-    ...state.crew.map(x=>L(`  ${x.name||"Unnamed"} (${x.role||"crew"})`,shTxt(num(x.share))+daysTxt(x)))
+    ...state.crew.filter(x=>!x.off).map(x=>L(`  ${x.name||"Unnamed"} (${x.role||"crew"})`,shTxt(num(x.share))+daysTxt(x)))
   ].join("\n");
 }
 
@@ -775,7 +781,7 @@ function renderResults(){
   let gearTot=0;
   state.gear.forEach((g,i)=>{const v=gearC(g);gearTot+=v;$("g-val-"+i).textContent=fmtC(v);const el=$("g-vpct-"+i);if(el)el.textContent=pctTxt(100-Math.min(100,Math.max(0,num(g.crewPct))))});
   $("gearTop").textContent=fmtC(gearTot);
-  r.people.forEach((p,i)=>{$("m-ded-"+i).textContent=p.ded?fmtC(-p.ded):"\u2014"});
+  r.people.forEach((p,i)=>{const el=$("m-ded-"+i);if(el)el.textContent=p.ded?fmtC(-p.ded):"\u2014"});
   $("vesselPct").textContent=pctTxt(100-r.pct);
   $("grossTop").textContent=fmtC(r.gross);
   const opC=state.exp.reduce((s,e)=>s+cents(e.amt),0),gearC2=state.gear.reduce((s,g)=>s+gearC(g),0);
@@ -809,6 +815,7 @@ function renderResults(){
     ${r.pool<=0?`<p class="warn" style="margin-top:8px">The crew pool is zero or less, so there is nothing to pay out in shares. Check the expenses and how they are charged.</p>`:""}`;
   $("perShare").textContent=`1 share = ${fmtC(perShareC)}`;
   $("slips").innerHTML=state.crew.map((c,i)=>{
+    if(c.off)return "";
     const p=r.people[i];
     return `<div class="slip">
       <h3>${esc(c.name||"Unnamed")}</h3>
@@ -847,7 +854,7 @@ function yearRows(r){
   return state.crew.map((c,i)=>{
     const p=r.people[i];
     const adv=c.deds.filter(d=>d.type==="Advance").reduce((s,d)=>s+cents(d.amt),0);
-    const trips=[...(c.prior||[]),{trip:thisTripLabel(),box5:p.share,ded:p.ded-adv,adv,current:true}];
+    const trips=[...(c.prior||[]),...(c.off?[]:[{trip:thisTripLabel(),box5:p.share,ded:p.ded-adv,adv,current:true}])];
     const sum=k=>trips.reduce((s,t)=>s+t[k],0);
     const box5=sum("box5"),ded=sum("ded"),advY=sum("adv");
     return{c,i,trips,box5,ded,adv:advY,net:box5-ded-advY};
@@ -989,6 +996,7 @@ function settlementCSV(){
   add("Total",`Crew pool (${pctTxt(r.pct)} %)`,"",r.pool);
   add("Total","Vessel/owner share","",r.vessel);
   state.crew.forEach((c,i)=>{
+    if(c.off)return;
     const p=r.people[i],who=c.name||"Unnamed";
     add("Crew share",`${c.role} · ${shTxt(num(c.share))} shares`,who,p.share);
     c.deds.forEach(d=>add("Deduction",d.type,who,-cents(d.amt)));
@@ -1010,6 +1018,7 @@ function qboCSV(){
     cr(A("qbAP"),exp,`${trip} · trip expenses and lost gear`);
   }
   state.crew.forEach((c,i)=>{
+    if(c.off)return;
     const p=r.people[i],who=c.name||"Unnamed";
     const adv=c.deds.filter(d=>d.type==="Advance").reduce((s,d)=>s+cents(d.amt),0);
     const other=p.ded-adv;
@@ -1057,12 +1066,12 @@ function openSeason(file){
 }
 function closeTrip(){
   const r=run(),label=curTrip();
-  if(!state.crew.length){exStatus("Add the crew before closing the trip.");return}
+  if(!state.crew.some(c=>!c.off)){exStatus("Add the crew before closing the trip.");return}
   if(r.people.some(p=>p.pay<0)){exStatus("Someone's deductions are larger than their share. Fix that before closing the trip.");return}
   if(!confirm(`Close “${label}”? Each crew member's share is added to the year-to-date totals, and the fish tickets, expenses, lost gear and personal deductions are cleared. Download a backup first if you want a copy of this trip.`))return;
   state.crew.forEach((c,i)=>{
     const p=r.people[i],adv=c.deds.filter(d=>d.type==="Advance").reduce((s,d)=>s+cents(d.amt),0);
-    c.prior=[...(c.prior||[]),{trip:label,box5:p.share,ded:p.ded-adv,adv}];
+    if(!c.off)c.prior=[...(c.prior||[]),{trip:label,box5:p.share,ded:p.ded-adv,adv}];
     c.deds=[];c.days="";
   });
   state.tickets=[];state.exp=[];state.gear=[];$("tripDays").value="";
@@ -1132,13 +1141,15 @@ document.addEventListener("click",e=>{
   if(t.dataset.confirm){(t.dataset.confirm==="ticket"?state.tickets:state.exp)[+t.dataset.i].status="checked"}
   else if(t.dataset.del==="line"){const tk=state.tickets[+t.dataset.t];tk.lines.splice(+t.dataset.i,1);if(tk.status==="checked")tk.status="scanned"}
   else if(t.dataset.del==="ticket"){state.tickets.splice(+t.dataset.t,1);ui.tOpen.clear()}
-  else if(t.dataset.del){if(t.dataset.del==="crew"){const c=state.crew[+t.dataset.i],n=(c&&c.name||"").trim();if(n&&!confirm(`Remove ${n} from this trip?\n\nIf ${n} worked part of the trip, keep them and set Days on board instead, so they are paid for the days they worked.`))return}state[t.dataset.del].splice(+t.dataset.i,1);if(t.dataset.del==="exp")ui.expOpen.clear()}
+  else if(t.dataset.del){if(t.dataset.del==="crew"){const c=state.crew[+t.dataset.i],n=(c&&c.name||"").trim();if(c&&(c.prior||[]).some(x=>x.box5>0)){c.off=true;c.days="";c.deds=[];ui.offOpen=false;renderLines();renderResults();return}if(n&&!confirm(`Remove ${n} from this trip?\n\nIf ${n} worked part of the trip, keep them and set Days on board instead, so they are paid for the days they worked.`))return}state[t.dataset.del].splice(+t.dataset.i,1);if(t.dataset.del==="exp")ui.expOpen.clear()}
   else if(t.dataset.addline!==undefined){const ti=+t.dataset.addline;state.tickets[ti].lines.push({name:"",lbs:0,price:0});focusSel=`#c-name-${ti}-${state.tickets[ti].lines.length-1}`}
   else if(t.dataset.delded!==undefined){state.crew[+t.dataset.delded].deds.splice(+t.dataset.j,1)}
   else if(t.dataset.addded!==undefined){const i=+t.dataset.addded;state.crew[i].deds.push({type:"Advance",amt:0});focusSel=`#d-amt-${i}-${state.crew[i].deds.length-1}`}
   else if(t.id==="addTicket"){ui.tOpen.add(state.tickets.length);state.tickets.push({label:"",no:"",date:(state.tickets.length?state.tickets[ticketOrder().slice(-1)[0]].date:"")||todayISO(),status:"manual",photos:[],lines:[{name:"",lbs:0,price:0}]});focusSel=`#c-name-${state.tickets.length-1}-0`}
   else if(t.id==="addExp"){state.exp.push({name:"",amt:0,to:"shared",crewPct:50});ui.expOpen.add(state.exp.length-1);focusSel=`#e-name-${state.exp.length-1}`}
   else if(t.id==="addGear"){state.gear.push({item:"",qty:1,unit:"each",cost:0,to:"shared",crewPct:50});focusSel=`#g-item-${state.gear.length-1}`}
+  else if(t.dataset.onboard!==undefined){const c=state.crew[+t.dataset.onboard];c.off=false;c.days=""}
+  else if(t.dataset.purge!==undefined){const c=state.crew[+t.dataset.purge],n=c.name||"this crew member",tot=(c.prior||[]).reduce((s,x)=>s+x.box5,0);if(!confirm(`Remove ${n} for good?\n\nOnly do this after this year's 1099 report has gone to your accountant. ${n}'s earnings this year (${fmtC(tot)}) will be removed from the report.`))return;state.crew.splice(+t.dataset.purge,1);ui.offOpen=true}
   else if(t.id==="addCrew"){state.crew.push({name:"",role:"Deckhand",share:1,deds:[],tin:null,tinStatus:"missing",prior:[]});focusSel=`#m-name-${state.crew.length-1}`}
   else if(t.dataset.w9!==undefined){const c=state.crew[+t.dataset.w9];if(!c.tin)c.tin=String(1000+Math.floor(Math.random()*9000));c.tinStatus="ok";renderResults();const b=$("ye1");if(b)b.focus();return}
   else if(t.id==="exCsv"){download(`CrewSettle-${slug(curTrip())}-settlement.csv`,settlementCSV(),"text/csv").then(ok=>{if(ok)exStatus("Settlement CSV saved. It opens in Excel or Google Sheets.")});return}
@@ -1312,7 +1323,7 @@ function renderTabSums(r){
   const ex=$("tabsum-expenses");if(!ex)return;
   $("tabsum-tickets").textContent=fmtShort(r.gross);
   ex.textContent=fmtShort(r.expenses);
-  $("tabsum-crew").textContent=state.crew.length+" crew";
+  $("tabsum-crew").textContent=state.crew.filter(c=>!c.off).length+" crew";
   $("tabsum-settlement").textContent=fmtShort(Math.round(r.perShareExact*100))+"/sh";
   $("tabsum-yearend").textContent="1099 report";
 }
