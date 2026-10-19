@@ -284,10 +284,11 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
 #cloudState.ok{color:var(--ok)}#cloudState.err{color:var(--neg)}
 </style>
 
-<div id="gate" hidden>
+<div id="gate">
   <div class="card">
     <h1 class="brand">CrewSettle</h1>
-    <div id="gStepEmail">
+    <div id="gStepLoading"><p>Loading your vessel…</p></div>
+    <div id="gStepEmail" hidden>
       <p>Sign in with your email. We send you a one-time code, so there is no password to remember.</p>
       <label for="gEmail">Email</label>
       <input id="gEmail" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com">
@@ -478,7 +479,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
     
   </section>
 
-  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.<br><span class="build">CrewSettle Pilot · build 2026-10-19.1</span></footer>
+  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.<br><span class="build">CrewSettle Pilot · build 2026-10-19.2</span></footer>
 </div>
 <nav class="tabbar" aria-label="Sections"><div class="tabbar-in"><button class="tab" data-tab="tickets" id="tab-tickets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg><span>Fish tickets</span><b class="tabsum" id="tabsum-tickets"></b></button><button class="tab" data-tab="expenses" id="tab-expenses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span>Expenses</span><b class="tabsum" id="tabsum-expenses"></b></button><button class="tab" data-tab="crew" id="tab-crew"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.9.4 5 2.8 5 5.8"/></svg><span>Crew</span><b class="tabsum" id="tabsum-crew"></b></button><button class="tab" data-tab="settlement" id="tab-settlement"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7h14"/><path d="M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/></svg><span>Settlement</span><b class="tabsum" id="tabsum-settlement"></b></button><button class="tab" data-tab="yearend" id="tab-yearend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Year end</span><b class="tabsum" id="tabsum-yearend"></b></button></div></nav>
 <div class="lightbox" id="lightbox" hidden><div><img id="lbImg" alt="Scanned document"><button id="lbClose">Close</button></div></div>
@@ -486,37 +487,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
 <script>
 const DED_TYPES=["Advance","License","Gear","Travel","Other"];
 const CHARGE=[["shared","Before split"],["vessel","Vessel/owner only"],["crew","Crew only"],["custom","Custom split"]];
-const state={
-  tickets:[
-    {label:"Kodiak buyer",no:"A-10482",date:"2026-09-19",status:"example",photos:[],lines:[
-      {name:"Sablefish (blackcod)",lbs:18400,price:2.40},
-      {name:"Pacific cod",lbs:3100,price:0.45}]},
-    {label:"Kodiak buyer",no:"A-10491",date:"2026-09-22",status:"example",photos:[],lines:[
-      {name:"Pacific halibut",lbs:9200,price:6.50}]}
-  ],
-  exp:[
-    {name:"Fuel",amt:11200,qty:3500,unit:"gal",to:"shared",crewPct:50},{name:"Bait (squid, herring)",amt:6800,qty:4000,unit:"lb",to:"shared",crewPct:50},
-    {name:"Groceries",amt:2900,to:"shared",crewPct:50},{name:"Observer fees",amt:1580,to:"shared",crewPct:50}
-  ],
-  gear:[
-    {item:"Groundline",qty:3,unit:"skates",cost:250,to:"shared",crewPct:50},
-    {item:"Anchor / grapple",qty:1,unit:"each",cost:300,to:"shared",crewPct:50},
-    {item:"Buoy line",qty:50,unit:"fathoms",cost:3,to:"shared",crewPct:50}
-  ],
-  crew:[
-    {name:"Dave Larsen",role:"Skipper",share:1.5,deds:[],tin:"4821",tinStatus:"ok",
-      prior:[{trip:"Trip #1 \u00b7 May 18",box5:631523,ded:0,adv:0},{trip:"Trip #2 \u00b7 Jun 30",box5:807060,ded:0,adv:0},{trip:"Trip #3 \u00b7 Aug 12",box5:802467,ded:0,adv:0}]},
-    {name:"Marco Reyes",role:"Engineer",share:1.1,deds:[{type:"License",amt:400}],tin:"7730",tinStatus:"ok",
-      prior:[{trip:"Trip #1 \u00b7 May 18",box5:463117,ded:0,adv:0},{trip:"Trip #2 \u00b7 Jun 30",box5:591844,ded:0,adv:0},{trip:"Trip #3 \u00b7 Aug 12",box5:588476,ded:0,adv:0}]},
-    {name:"Tom Beck",role:"Deckhand",share:1.0,deds:[{type:"Advance",amt:1000},{type:"Gear",amt:200}],tin:"1964",tinStatus:"ok",
-      prior:[{trip:"Trip #1 \u00b7 May 18",box5:421015,ded:0,adv:0},{trip:"Trip #2 \u00b7 Jun 30",box5:538040,ded:0,adv:80000},{trip:"Trip #3 \u00b7 Aug 12",box5:534978,ded:0,adv:0}]},
-    {name:"Jen Oakes",role:"Deckhand",share:1.0,deds:[{type:"Gear",amt:250}],tin:"5502",tinStatus:"ok",
-      prior:[{trip:"Trip #1 \u00b7 May 18",box5:421015,ded:15000,adv:0},{trip:"Trip #2 \u00b7 Jun 30",box5:538040,ded:0,adv:0},{trip:"Trip #3 \u00b7 Aug 12",box5:534978,ded:0,adv:0}]},
-    {name:"Luis Ortega",role:"Deckhand",share:1.0,deds:[],tin:"3187",tinStatus:"review",
-      prior:[{trip:"Trip #1 \u00b7 May 18",box5:421015,ded:0,adv:0},{trip:"Trip #2 \u00b7 Jun 30",box5:538040,ded:0,adv:0},{trip:"Trip #3 \u00b7 Aug 12",box5:534978,ded:0,adv:50000}]},
-    {name:"Kyle Pruitt",role:"Greenhorn",share:0.5,deds:[{type:"Travel",amt:600}],tin:null,tinStatus:"missing",prior:[]}
-  ]
-};
+const state={tickets:[],exp:[],gear:[],crew:[],archive:[],correcting:"",corrReason:""};
 const TAX_YEAR=2026;
 const ui={expOpen:new Set(),tOpen:new Set()};
 const dateTxt=v=>{v=v||"";if(/^\d{4}-\d{2}-\d{2}$/.test(v)){const d=new Date(v+"T12:00:00");if(!isNaN(d))return d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}return v};
@@ -837,7 +808,7 @@ function renderResults(){
     ${r.unused?`<div class="wf"><span class="op"></span><span>Unused shares to vessel/owner</span><span class="sum">${fmtC(r.unused)}</span></div>`:""}
     ${r.pool<=0?`<p class="warn" style="margin-top:8px">The crew pool is zero or less, so there is nothing to pay out in shares. Check the expenses and how they are charged.</p>`:""}`;
   $("perShare").textContent=`1 share = ${fmtC(perShareC)}`;
-  $("slips").innerHTML=state.crew.map((c,i)=>{
+  $("slips").innerHTML=r.gross<=0?`<p class="hint">Pay slips appear here when the first fish ticket is in.</p>`:state.crew.map((c,i)=>{
     if(c.off)return "";
     const p=r.people[i];
     return `<div class="slip">
@@ -1051,16 +1022,16 @@ function archiveCSV(a){
   const v=a.version||1,nx=a.superseded?(state.archive||[]).find(x=>x.id===a.supersededBy):null;
   const status=a.superseded?`SUPERSEDED by version ${nx?nx.version:v+1} – not valid`:"Current";
   const rows=[["Vessel","Trip","Version","Status","Date","Section","Description","Crew member","Amount (USD)"]];
-  const add=(sec,desc,who,c)=>rows.push([a.vessel,a.label,v,status,toISO(a.date),sec,desc,who,money(c)]);
-  if(a.reason)add("Correction",`Reason: ${a.reason}`,"",0);
-  add("Closed",`${a.closedAt}${a.closedBy?" by "+a.closedBy:""}`,"",0);
+  const add=(sec,desc,who,c)=>rows.push([a.vessel,a.label,v,status,toISO(a.date),sec,desc,who,c===null?"":money(c)]);
+  if(a.reason)add("Correction",`Reason: ${a.reason}`,"",null);
+  add("Closed",`${a.closedAt}${a.closedBy?" by "+a.closedBy:""}`,"",null);
   a.tickets.forEach(t=>t.lines.forEach(l=>add("Fish ticket",`${tName(t)} · ${l.name} · ${num(l.lbs)} lb @ ${num(l.price)}`,"",lineC(l))));
   add("Total","Gross catch value","",a.gross);
   a.exp.forEach(e=>add("Expense",`${e.name} (${e.to||"shared"})`,"",cents(e.amt)));
   a.gear.forEach(g=>add("Lost gear",`${g.item} (${g.to||"shared"})`,"",gearC(g)));
   add("Total","Expenses before split","",a.shared);
   add("Total",`Crew pool (${pctTxt(a.pct)} %)`,"",a.pool);
-  add("Total",a.fixed?`Pool divided by a fixed ${shTxt(a.divShares)} shares`:`Pool divided by ${shTxt(a.divShares)} shares on board`,"",0);
+  add("Total",a.fixed?`Pool divided by a fixed ${shTxt(a.divShares)} shares`:`Pool divided by ${shTxt(a.divShares)} shares on board`,"",null);
   if(a.unused)add("Total","Unused shares to vessel/owner","",a.unused);
   add("Total","Vessel/owner share","",a.vesselNet);
   a.crew.forEach(c=>{const who=c.name||"Unnamed";
@@ -1113,7 +1084,7 @@ function applySeason(d){
   if(!d||!d.state||!Array.isArray(d.state.crew))throw 0;
   ["tickets","exp","gear","crew","archive"].forEach(k=>state[k]=Array.isArray(d.state[k])?d.state[k]:[]);
   state.correcting=d.state.correcting||"";state.corrReason=d.state.corrReason||"";
-  state.crew.forEach(c=>{c.deds=c.deds||[];c.prior=c.prior||[];if(!c.cid)c.cid=newCid()});
+  state.crew.forEach(c=>{c.deds=c.deds||[];c.prior=c.prior||[];if(!c.cid)c.cid=newCid();if(typeof c.name==="string")c.name=c.name.replace(/\s+/g," ").trim()});
   Object.entries(d.fields||{}).forEach(([id,v])=>{const el=$(id);if(el)el.value=id==="date"?(toISO(v)||""):v});
   syncPoolUI();
   $("qbFull").checked=!!d.qbFull;$("qbFullBox").hidden=!d.qbFull;
@@ -1133,6 +1104,7 @@ function openSeason(file){
 }
 function closeTrip(){
   const r=run(),label=curTrip();
+  if(r.gross<=0){exStatus("Cannot close yet. Add at least one fish ticket with a value greater than $0.",1);return}
   if(!state.crew.some(c=>!c.off)){exStatus("Add the crew before closing the trip.",1);return}
   if(r.people.some(p=>p.pay<0)){exStatus("Someone's deductions are larger than their share. Fix that before closing the trip.",1);return}
   const unT=state.tickets.filter(o=>o.status==="scanned").map(t=>"Fish ticket "+(t.no?"#"+t.no:"")+(t.label?" ("+t.label+")":"")),
@@ -1142,7 +1114,7 @@ function closeTrip(){
   const np=[];state.tickets.forEach(t=>t.lines.forEach(l=>{if(num(l.lbs)>0&&num(l.price)<=0)np.push(`${l.name||"Unnamed line"} on ticket ${t.no?"#"+t.no:t.label||""}`.trim())}));
   if(np.length){exStatus(`Cannot close yet. No price: ${np.join("; ")}. Fill in the price per lb from the buyer's settlement.`,1);return}
   if(!confirm(`Close “${label}”? The settlement is saved under Closed trips and can no longer be changed. Each crew member's share is added to the year-to-date totals, and the fish tickets, expenses, lost gear and personal deductions are cleared for the next trip.`))return;
-  state.crew.forEach(c=>{if(!c.cid)c.cid=newCid()});
+  state.crew.forEach(c=>{if(!c.cid)c.cid=newCid();if(typeof c.name==="string")c.name=c.name.replace(/\s+/g," ").trim()});
   const act=state.crew.map((c,i)=>[c,i]).filter(([c])=>!c.off);
   const prev=state.correcting?(state.archive||[]).find(x=>x.id===state.correcting):null;
   const aid=Date.now().toString(36);
@@ -1189,6 +1161,7 @@ document.addEventListener("input",e=>{
 });
 document.addEventListener("change",e=>{
   const t=e.target;
+  if(t.dataset.k==="crew"&&t.dataset.f==="name"){const c=state.crew[+t.dataset.i],v=String(t.value).replace(/\s+/g," ").trim();if(c&&c.name!==v){c.name=v;t.value=v;renderResults()}}
   if(t.id==="exOpen"){const f=t.files[0];t.value="";if(f)openSeason(f);return}
   if(t.id==="qbFull"){$("qbFullBox").hidden=!t.checked;return}
   if(t.id==="tripDays"){renderLines();renderResults();return}
@@ -1457,7 +1430,7 @@ const CS_URL="https://skrteeydwemrlbqlpfah.supabase.co",CS_KEY="sb_publishable_t
 const cs={db:null,user:null,boat:null,loading:false,timer:null,saving:false,again:false,lastJson:""};
 const g=id=>document.getElementById(id);
 function gMsg(t,kind){const m=g("gMsg");m.textContent=t||"";m.className="msg"+(kind?" "+kind:"")}
-function gStep(s){["Email","Code","Boat"].forEach(k=>g("gStep"+k).hidden=k!==s)}
+function gStep(s){["Loading","Email","Code","Boat"].forEach(k=>g("gStep"+k).hidden=k!==s)}
 function cloudState(t,kind){const e=g("cloudState");e.textContent=t;e.className=kind||""}
 function blankSeason(name){
   state.tickets=[];state.exp=[];state.gear=[];state.crew=[];state.archive=[];state.correcting="";state.corrReason="";$("poolDiv").value="";$("poolFixed").value="";syncPoolUI();
@@ -1509,10 +1482,11 @@ window.addEventListener("beforeunload",e=>{if(cs.boat&&!cs.saving){const d=seaso
 async function onSignedIn(user){
   cs.user=user;
   sample=scanAdapter;maxImgs=4;scanUI(true);
+  g("gate").hidden=false;gStep("Loading");gMsg("");
   try{await loadBoat()}catch(e){g("gate").hidden=false;gStep("Email");gMsg("Could not load your vessel. Check your connection and reload the page.","err")}
 }
 (async function(){
-  if(!window.supabase||!window.supabase.createClient){g("gate").hidden=false;gMsg("Could not reach the sign-in service. Check your connection and reload.","err");return}
+  if(!window.supabase||!window.supabase.createClient){g("gate").hidden=false;gStep("Email");gMsg("Could not reach the sign-in service. Check your connection and reload.","err");return}
   cs.db=window.supabase.createClient(CS_URL,CS_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
   if(window.__csAuthHash){
     const p=new URLSearchParams(window.__csAuthHash);
