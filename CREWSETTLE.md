@@ -70,6 +70,7 @@ All money is calculated in whole cents. The core is the function `settle()` in `
 
 - The scan function rejects anyone who is not signed in. Because anyone can create an account, a monthly **spending limit must be set in the Anthropic Console** (to do: confirm it is set), so a bug or misuse cannot cost more than that limit. A per-user daily scan cap can be added when there are more users.
 - The git history of this repository (all versions) was checked on 2026-10-19: no secrets have ever been committed.
+- The live database was checked with `supabase-check.sql` on 2026-10-20: RLS on for all three tables, the six expected policies, no rights for signed-out visitors (`anon`), and signed-in users limited to boat_members SELECT, boats SELECT (+ UPDATE of name only), seasons INSERT/SELECT/UPDATE.
 
 ## 7. Privacy requests (GDPR) – how a crew member is deleted
 

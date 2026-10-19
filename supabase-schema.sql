@@ -79,6 +79,9 @@ grant execute on function public.create_boat(text) to authenticated;
 revoke all on function public.is_boat_member(uuid) from public, anon;
 grant execute on function public.is_boat_member(uuid) to authenticated;
 
--- 5. Hardening (added 2026-10-19): the boat owner may only change the boat's name.
-revoke update on public.boats from authenticated;
+-- 5. Hardening (run on the live database 2026-10-20): signed-in users get exactly what the app needs, nothing more.
+revoke all on public.boats, public.boat_members, public.seasons from authenticated;
+grant select on public.boats to authenticated;
 grant update (name) on public.boats to authenticated;
+grant select on public.boat_members to authenticated;
+grant select, insert, update on public.seasons to authenticated;
