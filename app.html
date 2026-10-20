@@ -435,6 +435,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
         <label for="qbAdv">Advances repaid<input id="qbAdv" value="Crew advances"></label>
         <label for="qbDed">Other crew deductions<input id="qbDed" value="Crew deductions"></label>
       </div>
+      <label class="chk"><input type="checkbox" id="qbNames"> Crew are set up as vendors in QuickBooks: fill in the Name column. The names must match the vendor names in QuickBooks exactly, or the import stops. Leave unticked and each crew member's name goes in the description instead.</label>
       <label class="chk"><input type="checkbox" id="qbFull"> Also include fish sales and trip expenses. Only tick this if they are not already in the books, for example from bank deposits or bills, or they will be entered twice.</label>
       <div class="trip" id="qbFullBox" hidden>
         <label for="qbAR">Fish buyers owe (receivable)<input id="qbAR" value="Accounts receivable"></label>
@@ -479,7 +480,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
     
   </section>
 
-  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.<br><span class="build">CrewSettle Pilot · build 2026-10-20.1</span></footer>
+  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.<br><span class="build">CrewSettle Pilot · build 2026-10-20.2</span></footer>
 </div>
 <nav class="tabbar" aria-label="Sections"><div class="tabbar-in"><button class="tab" data-tab="tickets" id="tab-tickets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg><span>Fish tickets</span><b class="tabsum" id="tabsum-tickets"></b></button><button class="tab" data-tab="expenses" id="tab-expenses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span>Expenses</span><b class="tabsum" id="tabsum-expenses"></b></button><button class="tab" data-tab="crew" id="tab-crew"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.9.4 5 2.8 5 5.8"/></svg><span>Crew</span><b class="tabsum" id="tabsum-crew"></b></button><button class="tab" data-tab="settlement" id="tab-settlement"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7h14"/><path d="M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/></svg><span>Settlement</span><b class="tabsum" id="tabsum-settlement"></b></button><button class="tab" data-tab="yearend" id="tab-yearend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Year end</span><b class="tabsum" id="tabsum-yearend"></b></button></div></nav>
 <div class="lightbox" id="lightbox" hidden><div><img id="lbImg" alt="Scanned document"><button id="lbClose">Close</button></div></div>
@@ -1060,7 +1061,9 @@ function archiveCSV(a){
   return csvOf(rows);
 }
 function qboCSV(){
-  const r=run(),no=$("qbNo").value||"CS-1",date=toISO($("date").value)||todayISO(),trip=curTrip();
+  const r=run(),no=$("qbNo").value||"CS-1",iso=toISO($("date").value)||todayISO(),trip=curTrip();
+  const date=iso.slice(5,7)+"/"+iso.slice(8,10)+"/"+iso.slice(0,4);
+  const useNames=$("qbNames").checked;
   const A=id=>$(id).value.trim()||$(id).defaultValue;
   const rows=[["Journal No","Journal Date","Account","Debits","Credits","Description","Name"]];
   const dr=(acc,c,desc,name="")=>{if(c>0)rows.push([no,date,acc,money(c),"",desc,name])};
@@ -1074,13 +1077,13 @@ function qboCSV(){
   }
   state.crew.forEach((c,i)=>{
     if(c.off)return;
-    const p=r.people[i],who=c.name||"Unnamed";
+    const p=r.people[i],nm=c.name||"Unnamed",who=useNames?nm:"",tag=useNames?"":` \u00b7 ${nm}`;
     const adv=c.deds.filter(d=>d.type==="Advance").reduce((s,d)=>s+cents(d.amt),0);
     const other=p.ded-adv;
-    dr(A("qbShare"),p.share,`${trip} · crew share`,who);
-    cr(A("qbAdv"),Math.min(adv,p.share),`${trip} · advance repaid`,who);
-    cr(A("qbDed"),Math.min(other,Math.max(0,p.share-adv)),`${trip} · deductions`,who);
-    cr(A("qbPay"),Math.max(0,p.pay),`${trip} · net pay`,who);
+    dr(A("qbShare"),p.share,`${trip} · crew share${tag}`,who);
+    cr(A("qbAdv"),Math.min(adv,p.share),`${trip} · advance repaid${tag}`,who);
+    cr(A("qbDed"),Math.min(other,Math.max(0,p.share-adv)),`${trip} · deductions${tag}`,who);
+    cr(A("qbPay"),Math.max(0,p.pay),`${trip} · net pay${tag}`,who);
   });
   let d=0,k=0;rows.slice(1).forEach(x=>{d+=cents(x[3]);k+=cents(x[4])});
   return{csv:csvOf(rows),balanced:d===k,d,k,neg:r.people.some(p=>p.pay<0)};
@@ -1088,7 +1091,7 @@ function qboCSV(){
 function saveSeason(){
   const data={app:"CrewSettle prototype",version:2,savedAt:new Date().toISOString(),
     fields:Object.fromEntries(["vessel","trip","port","date","tripDays","crewPct","poolDiv","poolFixed","avgCrew","qbNo","qbShare","qbPay","qbAdv","qbDed","qbAR","qbSales","qbExp","qbAP"].map(id=>[id,$(id).value])),
-    qbFull:$("qbFull").checked,
+    qbFull:$("qbFull").checked,qbNames:$("qbNames").checked,
     state:{...state,tickets:state.tickets.map(t=>({...t,photos:[]})),exp:state.exp.map(e=>({...e,photos:[]}))}};
   download(`CrewSettle-${slug($("vessel").value)}-${todayISO()}.json`,JSON.stringify(data,null,1),"application/json").then(ok=>{if(ok)exStatus("Backup saved. It contains confidential crew pay information, so store and share it securely. Photos are not included. Open it again with “Open backup”.")});
 
@@ -1096,7 +1099,7 @@ function saveSeason(){
 function seasonData(){
   return{app:"CrewSettle",version:2,savedAt:new Date().toISOString(),
     fields:Object.fromEntries(["vessel","trip","port","date","tripDays","crewPct","poolDiv","poolFixed","avgCrew","qbNo","qbShare","qbPay","qbAdv","qbDed","qbAR","qbSales","qbExp","qbAP"].map(id=>[id,$(id).value])),
-    qbFull:$("qbFull").checked,
+    qbFull:$("qbFull").checked,qbNames:$("qbNames").checked,
     state:{...state,tickets:state.tickets.map(t=>({...t,photos:[]})),exp:state.exp.map(e=>({...e,photos:[]}))}};
 }
 function applySeason(d){
@@ -1106,7 +1109,7 @@ function applySeason(d){
   state.crew.forEach(c=>{c.deds=c.deds||[];c.prior=c.prior||[];if(!c.cid)c.cid=newCid();if(typeof c.name==="string")c.name=c.name.replace(/\s+/g," ").trim()});
   Object.entries(d.fields||{}).forEach(([id,v])=>{const el=$(id);if(el)el.value=id==="date"?(toISO(v)||""):v});
   syncPoolUI();
-  $("qbFull").checked=!!d.qbFull;$("qbFullBox").hidden=!d.qbFull;
+  $("qbFull").checked=!!d.qbFull;$("qbNames").checked=!!d.qbNames;$("qbFullBox").hidden=!d.qbFull;
   ui.expOpen.clear();ui.tOpen.clear();ye.sent=null;
   renderLines();renderResults();
 }
