@@ -19,7 +19,9 @@ All money is calculated in whole cents. The core is the function `settle()` in `
    - *Before split* (default): taken off the gross before anyone gets a share.
    - *Vessel/owner only*: comes out of the vessel's share.
    - *Crew only*: comes out of the crew pool.
+   - *Crew, split equally per person*: every crew member on board pays the same amount, taken off his own pay (for example groceries). Cents are spread so the total is exact.
    - *Custom*: split by a chosen crew percentage; the rest is the vessel's.
+   - **IFQ lease fees** (Alaska individual fishing quota, for example halibut and sablefish) are entered on each fish ticket: lease holder, area (optional), lease %, species (one or all on the ticket), the fish taxes on that ticket, and who pays (before split by default). Fee = (value of those species − their share of the ticket's fish taxes) × lease %. The fee is rounded once per lease holder, area and percent, as on a settlement sheet. Each lease holder gets an IFQ lease statement. Verified against a real Alaska settlement sheet: every amount matched to the cent.
 3. **Settlement basis** = gross − expenses before split.
 4. **Crew share** = basis × crew % (for example 48 %). The vessel/owner gets the rest.
 5. **Crew pool** = crew share − crew-only expenses.
@@ -28,12 +30,13 @@ All money is calculated in whole cents. The core is the function `settle()` in `
    - *The shares on board this trip* (default): the pool is divided by the sum of effective shares. Shares not used by someone who left mid-trip go to the rest of the crew.
    - *A fixed number of shares*: the pool is divided by a fixed number (for example 10). Unused shares go to the vessel/owner and are shown as a separate line.
 8. **Rounding**: shares are rounded down to the cent, and the leftover cents go one by one to the people with the largest remainders. The shares always add up exactly to the pool.
-9. **Personal deductions** (advance, license, gear, travel, other) come off that one person's pay only. Pay = share − personal deductions.
+9. **Personal deductions** (advance, license, gear, travel, other) come off that one person's pay only. Pay = share − personal deductions. Pay can be negative when draws are larger than the share; the slip then says how much he owes the vessel, and the trip can still be closed (with a warning).
+   Boats that pay crew in percent (for example 14 %, 9.5 %) set the crew share to the total of the percents and enter each percent as that person's shares.
 10. A **reconciliation** checks that everything balances to the cent. The pay slip shows every step of the math and the rule used for unused shares.
 
 ## 3. Trips, versions and history
 
-- **Closing a trip** is blocked if: there is no fish ticket value, no crew, a scanned ticket or receipt has not been checked, a ticket line has no price, or someone's deductions exceed their share.
+- **Closing a trip** is blocked if: there is no fish ticket value, no crew, a scanned ticket or receipt has not been checked, or a ticket line has no price. If someone's deductions exceed their share, the app warns but allows closing.
 - When a trip is closed, a **locked snapshot** is saved: tickets, expenses, gear, crew terms, every calculation, every pay slip, who closed it and when. Later changes to the crew list never change a closed trip.
 - **Corrections**: "Create correction" copies a closed trip into a new editable version and asks for a reason. When it is closed, it becomes version 2 (3, 4 …). The original stays, marked *Superseded*. Year-to-date totals count only the newest version.
 - Exports are labelled by version. A superseded version is marked SUPERSEDED in the file name, the file content and a copied slip.

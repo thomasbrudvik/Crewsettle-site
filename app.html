@@ -282,6 +282,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
 .cloudbar b{color:var(--ink);font-family:var(--display);font-size:1.15rem;font-weight:700}
 .cloudbar button{font:inherit;font-size:.85rem;background:none;border:1px solid var(--line);border-radius:8px;padding:4px 10px;color:var(--ink);cursor:pointer}
 #cloudState.ok{color:var(--ok)}#cloudState.err{color:var(--neg)}
+.ifq-item{border-top:1px dashed var(--line);margin-top:10px;padding-top:8px}.ifq-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.ifq-grid .cell{display:flex;flex-direction:column;gap:4px}.ifq-grid input,.ifq-grid select{width:100%;box-sizing:border-box}
 </style>
 
 <div id="gate">
@@ -410,6 +411,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
   <section data-pane="settlement">
     <div class="row-head"><h2>Pay slips</h2><span class="hint" id="perShare"></span></div>
     <div class="slips" id="slips"></div>
+    <div id="ifqWrap" hidden><div class="row-head"><h2>IFQ lease holders</h2></div><div class="slips" id="ifqSlips"></div></div>
   </section>
 
   <section data-pane="settlement">
@@ -480,14 +482,14 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
     
   </section>
 
-  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.<br><span class="build">CrewSettle Pilot · build 2026-10-20.2</span></footer>
+  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.<br><span class="build">CrewSettle Pilot · build 2026-10-20.3</span></footer>
 </div>
 <nav class="tabbar" aria-label="Sections"><div class="tabbar-in"><button class="tab" data-tab="tickets" id="tab-tickets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg><span>Fish tickets</span><b class="tabsum" id="tabsum-tickets"></b></button><button class="tab" data-tab="expenses" id="tab-expenses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span>Expenses</span><b class="tabsum" id="tabsum-expenses"></b></button><button class="tab" data-tab="crew" id="tab-crew"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.9.4 5 2.8 5 5.8"/></svg><span>Crew</span><b class="tabsum" id="tabsum-crew"></b></button><button class="tab" data-tab="settlement" id="tab-settlement"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7h14"/><path d="M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/></svg><span>Settlement</span><b class="tabsum" id="tabsum-settlement"></b></button><button class="tab" data-tab="yearend" id="tab-yearend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Year end</span><b class="tabsum" id="tabsum-yearend"></b></button></div></nav>
 <div class="lightbox" id="lightbox" hidden><div><img id="lbImg" alt="Scanned document"><button id="lbClose">Close</button></div></div>
 
 <script>
 const DED_TYPES=["Advance","License","Gear","Travel","Other"];
-const CHARGE=[["shared","Before split"],["vessel","Vessel/owner only"],["crew","Crew only"],["custom","Custom split"]];
+const CHARGE=[["shared","Before split"],["vessel","Vessel/owner only"],["crew","Crew only"],["each","Crew, split equally per person"],["custom","Custom split"]];
 const state={tickets:[],exp:[],gear:[],crew:[],archive:[],correcting:"",corrReason:""};
 const TAX_YEAR=2026;
 const ui={expOpen:new Set(),tOpen:new Set()};
@@ -505,9 +507,10 @@ const cents=v=>Math.round(num(v)*100);
 function settle(catchRows,expRows,crew,crewPctRaw,fixedRaw){
   const lineCents=catchRows.map(c=>Math.round(num(c.lbs)*num(c.price)*100));
   const gross=lineCents.reduce((a,b)=>a+b,0);
-  let shared=0,vesselOnly=0,crewOnly=0;
+  let shared=0,vesselOnly=0,crewOnly=0;const eachList=[];
   expRows.forEach(e=>{
     const a=cents(e.amt), to=e.to||"shared";
+    if(to==="each"){if(a)eachList.push({name:e.name||"Expense",a});return}
     if(to==="shared") shared+=a;
     else if(to==="vessel") vesselOnly+=a;
     else if(to==="crew") crewOnly+=a;
@@ -533,15 +536,17 @@ function settle(catchRows,expRows,crew,crewPctRaw,fixedRaw){
       [...parts].sort((a,b)=>b.rem-a.rem||a.i-b.i).slice(0,leftover).forEach(p=>alloc[p.i]+=1);
     } else unused=pool-alloc.reduce((a,b)=>a+b,0);
   }
+  const act=milli.map((m,i)=>m>0?i:-1).filter(i=>i>=0),eachPer=crew.map(()=>[]);let eachTotal=0;
+  eachList.forEach(x=>{eachTotal+=x.a;const n=act.length;if(!n)return;const b=Math.floor(x.a/n),rm=x.a-b*n;act.forEach((i,k)=>eachPer[i].push({name:x.name,amt:b+(k<rm?1:0)}))});
   const people=crew.map((c,i)=>{
-    const ded=c.deds.reduce((s,d)=>s+cents(d.amt),0);
-    return{share:alloc[i],ded,pay:alloc[i]-ded};
+    const ded=c.deds.reduce((s,d)=>s+cents(d.amt),0)+eachPer[i].reduce((s,x)=>s+x.amt,0);
+    return{share:alloc[i],ded,pay:alloc[i]-ded,each:eachPer[i]};
   });
   const totalDed=people.reduce((s,p)=>s+p.ded,0);
   const sumShares=people.reduce((s,p)=>s+p.share,0);
   const netPaid=people.reduce((s,p)=>s+p.pay,0);
   const perShareExact=divMilli>0?(pool/100)/(divMilli/1000):0;
-  return{lineCents,gross,expenses,shared,vesselOnly,crewOnly,crewBase,vesselBase,basis,pct,pool,vessel,totalShares:totalMilli/1000,divShares:divMilli/1000,fixed:divMilli!==totalMilli,unused,perShareExact,people,totalDed,sumShares,netPaid,leftover,diff:pool>0?sumShares+unused-pool:0};
+  return{eachTotal,lineCents,gross,expenses,shared,vesselOnly,crewOnly,crewBase,vesselBase,basis,pct,pool,vessel,totalShares:totalMilli/1000,divShares:divMilli/1000,fixed:divMilli!==totalMilli,unused,perShareExact,people,totalDed,sumShares,netPaid,leftover,diff:pool>0?sumShares+unused-pool:0};
 }
 /* ---- end core ---- */
 
@@ -572,12 +577,48 @@ function findTicketDups(){
   return out;
 }
 const gearC=g=>Math.round(num(g.qty)*num(g.cost)*100);
-const gearAsExp=()=>state.gear.map(g=>({amt:gearC(g)/100,to:g.to,crewPct:g.crewPct}));
+const gearAsExp=()=>state.gear.map(g=>({amt:gearC(g)/100,to:g.to,crewPct:g.crewPct,name:"Lost gear: "+(g.item||"unnamed")}));
+function ifqRows(tickets){
+  const out=[];
+  (tickets||[]).forEach((t,ti)=>(t.ifq||[]).forEach((q,j)=>{
+    const pct=Math.min(100,Math.max(0,num(q.pct)));
+    const all=t.lines.reduce((s,l)=>s+lineC(l),0);
+    const sel=q.sp?t.lines.filter(l=>l.name===q.sp):t.lines;
+    const base=sel.reduce((s,l)=>s+lineC(l),0);
+    const taxAll=Math.max(0,cents(q.tax)),tax=all>0?Math.round(taxAll*base/all):0;
+    const adj=Math.max(0,base-tax),pm=Math.round(pct*1000),nm=adj*pm;
+    const holder=String(q.holder||"").trim()||"IFQ holder",area=String(q.area||"").trim();
+    out.push({ti,j,t,holder,area,pct,base,tax,adj,nm,amt:Math.floor(nm/100000),to:q.to||"shared",sp:q.sp||"",lbs:sel.reduce((s,l)=>s+num(l.lbs),0),
+      label:`IFQ lease: ${holder}${area?" "+area:""} ${pctTxt(pct)}%`});
+  }));
+  // Round once per lease holder, area, percent and charge (as on a settlement sheet), and spread the cents over the deliveries.
+  const groups={};out.forEach(x=>{(groups[x.holder+"|"+x.area+"|"+x.pct+"|"+x.to]=groups[x.holder+"|"+x.area+"|"+x.pct+"|"+x.to]||[]).push(x)});
+  Object.values(groups).forEach(g=>{const tot=Math.round(g.reduce((s,x)=>s+x.nm,0)/100000);let left=tot-g.reduce((s,x)=>s+x.amt,0);
+    [...g].sort((a,b)=>(b.nm%100000)-(a.nm%100000)).forEach(x=>{if(left>0){x.amt++;left--}})});
+  return out;
+}
+const ifqAsExp=()=>ifqRows(state.tickets).map(x=>({amt:x.amt/100,to:x.to,name:x.label}));
+function ifqStatements(tickets,hdr){
+  const L=(a,b)=>(a.length>=36?a+"  ":a.padEnd(38," "))+b;
+  const groups=[];
+  ifqRows(tickets).forEach(x=>{const key=x.holder+"|"+x.area;let g=groups.find(y=>y.key===key);if(!g){g={key,holder:x.holder,area:x.area,rows:[]};groups.push(g)}g.rows.push(x)});
+  return groups.map(g=>{
+    const S=k=>g.rows.reduce((s,x)=>s+x[k],0),pcts=[...new Set(g.rows.map(x=>x.pct))];
+    const text=[`IFQ LEASE STATEMENT`,`${hdr.vessel} \u00b7 ${hdr.trip}`,``,`Lease holder: ${g.holder}${g.area?` (${g.area})`:""}`,``,`Deliveries:`,
+      ...g.rows.map(x=>L(`  ${fmtDate(x.t.date)} \u00b7 ${tName(x.t)}${x.sp?" \u00b7 "+x.sp:""}`,`${x.lbs.toLocaleString("en-US")} lb  ${fmtC(x.base)}`)),
+      L("Total value:",fmtC(S("base"))),
+      L("Less fish taxes:","\u2212"+fmtC(S("tax")).replace("\u2212","")),
+      L("Value after fish taxes:",fmtC(S("adj"))),
+      ...(pcts.length===1?[L(`Lease fee (${pctTxt(pcts[0])} %):`,fmtC(S("amt")))]:g.rows.map(x=>L(`  Lease fee ${pctTxt(x.pct)} % (${fmtDate(x.t.date)}):`,fmtC(x.amt)))),
+      ``,L("DUE TO LEASE HOLDER:",fmtC(S("amt")))].join("\n");
+    return{holder:g.holder,area:g.area,amt:S("amt"),text};
+  });
+}
 const tripDaysN=()=>{const d=num($("tripDays").value);return d>0?d:0};
 const daysOf=c=>{const T=tripDaysN();if(!T)return null;const v=String(c.days??"").trim();if(v==="")return T;return Math.min(T,Math.max(0,num(v)))};
 const effShare=c=>{const T=tripDaysN(),d=daysOf(c);return T&&d!=null?num(c.share)*d/T:num(c.share)};
 const daysTxt=c=>{const T=tripDaysN(),d=daysOf(c);return T&&d!=null&&d<T?` \u00d7 ${d}/${T} days`:""};
-const run=()=>settle(allLines(),[...state.exp,...gearAsExp()],state.crew.map(c=>c.off?{...c,share:0,deds:[]}:{...c,share:effShare(c)}),$("crewPct").value,$("poolDiv").value==="fixed"?$("poolFixed").value:0);
+const run=()=>settle(allLines(),[...state.exp,...gearAsExp(),...ifqAsExp()],state.crew.map(c=>c.off?{...c,share:0,deds:[]}:{...c,share:effShare(c)}),$("crewPct").value,$("poolDiv").value==="fixed"?$("poolFixed").value:0);
 const lineC=c=>Math.round(num(c.lbs)*num(c.price)*100);
 const BADGE={example:["Example",""],manual:["Typed in",""],scanned:["Scanned \u00b7 check against photo","check"],checked:["Checked against photo","ok"]};
 const thumbs=ph=>ph.length?`<span class="thumbs">${ph.map((u,k)=>`<button class="thumb" data-photo="${u}" aria-label="View photo ${k+1}"><img src="${u}" alt=""></button>`).join("")}</span>`:"";
@@ -627,8 +668,19 @@ function renderLines(){
         <div class="cell c-valc"><span class="mlabel" style="text-align:right">Line value</span><span class="calc" id="c-val-${ti}-${i}"></span></div>
         <button class="x c-del" data-del="line" data-t="${ti}" data-i="${i}" aria-label="Remove ${esc(c.name||"species")}">\u00d7</button>
       </div>`).join("")}
-      <div class="row-head"><button class="add small" data-addline="${ti}">+ Add species</button><button class="tedit" data-tedit="${ti}">Done</button></div>`
-      :`<div class="tlines">${t.lines.map(c=>`<div class="tline"><span class="nm">${esc(c.name||"Unnamed species")}</span><span class="calc2">${num(c.lbs).toLocaleString("en-US")} lb \u00d7 ${num(c.price)>0?`$${num(c.price).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:4})} = <b>${fmtC(lineC(c))}</b>`:`<b class="noprice">price missing</b>`}</span></div>`).join("")||`<p class="hint">No species yet. Tap Edit to add them.</p>`}</div>`}
+      <div class="ifq">${(t.ifq||[]).map((q,j)=>`<div class="ifq-item">
+        <div class="ifq-grid">
+          ${cell("IFQ lease holder",`<input id="q-holder-${ti}-${j}" data-k="ifq" data-t="${ti}" data-j="${j}" data-f="holder" value="${esc(q.holder||"")}" placeholder="Quota owner">`)}
+          ${cell("Area (optional)",`<input id="q-area-${ti}-${j}" data-k="ifq" data-t="${ti}" data-j="${j}" data-f="area" value="${esc(q.area||"")}" placeholder="e.g. WG">`)}
+          ${cell("Lease %",`<input id="q-pct-${ti}-${j}" class="num" inputmode="decimal" data-k="ifq" data-t="${ti}" data-j="${j}" data-f="pct" value="${esc(String(q.pct??""))}" placeholder="e.g. 35">`)}
+          ${cell("Less fish taxes ($)",`<input id="q-tax-${ti}-${j}" class="num" inputmode="decimal" data-k="ifq" data-t="${ti}" data-j="${j}" data-f="tax" value="${esc(String(q.tax??""))}" placeholder="0">`)}
+          ${cell("Species",`<select id="q-sp-${ti}-${j}" data-k="ifq" data-t="${ti}" data-j="${j}" data-f="sp"><option value="">All species</option>${[...new Set(t.lines.map(l=>l.name).filter(Boolean))].map(n=>`<option${n===q.sp?" selected":""}>${esc(n)}</option>`).join("")}</select>`)}
+          ${cell("Charged to",`<select id="q-to-${ti}-${j}" data-k="ifq" data-t="${ti}" data-j="${j}" data-f="to">${[["shared","Before split"],["vessel","Vessel/owner only"],["crew","Crew only"]].map(([v,x])=>`<option value="${v}"${v===(q.to||"shared")?" selected":""}>${x}</option>`).join("")}</select>`)}
+        </div>
+        <p class="hint small">Lease fee <span id="q-amt-${ti}-${j}"></span> <button class="add small" data-delifq="${ti}" data-j="${j}">Remove</button></p>
+      </div>`).join("")}</div>
+      <div class="row-head"><button class="add small" data-addline="${ti}">+ Add species</button><button class="add small" data-addifq="${ti}">+ IFQ lease</button><button class="tedit" data-tedit="${ti}">Done</button></div>`
+      :`<div class="tlines">${t.lines.map(c=>`<div class="tline"><span class="nm">${esc(c.name||"Unnamed species")}</span><span class="calc2">${num(c.lbs).toLocaleString("en-US")} lb \u00d7 ${num(c.price)>0?`$${num(c.price).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:4})} = <b>${fmtC(lineC(c))}</b>`:`<b class="noprice">price missing</b>`}</span></div>`).join("")||`<p class="hint">No species yet. Tap Edit to add them.</p>`}${ifqRows([t]).map(x=>`<div class="tline"><span class="nm">${esc(x.label)}${x.sp?" \u00b7 "+esc(x.sp):""}</span><span class="calc2"><b>\u2212${fmtC(x.amt).replace("\u2212","")}</b></span></div>`).join("")}</div>`}
     </div>`}).join(""):`<p class="hint">No fish tickets yet. Scan the first one or type it in.</p>`;
   $("expLines").innerHTML=state.exp.length?state.exp.map((e,i)=>{const open=ui.expOpen.has(i);return `
     <div class="exp-item compact">
@@ -659,7 +711,7 @@ function renderLines(){
         <label for="e-pct-${i}" class="inline">Crew pays<input id="e-pct-${i}" class="num" inputmode="decimal" data-k="exp" data-i="${i}" data-f="crewPct" value="${e.crewPct}"></label>
         <span>% \u00b7 vessel/owner pays <b id="e-vpct-${i}"></b> %</span>
       </div>`:""}
-      <p class="hint small">${({shared:"Before split: comes off the catch value before the vessel/crew split.",vessel:"Owner only: paid from the vessel/owner share after the split.",crew:"Crew only: paid from the crew share after the split.",custom:"Custom split: the cost is divided by the percentage you set."})[e.to||"shared"]} Type the total from the invoice, or fill in quantity and price per unit and the total is worked out for you. Quantity, unit and price are optional.</p>
+      <p class="hint small">${({shared:"Before split: comes off the catch value before the vessel/crew split.",vessel:"Owner only: paid from the vessel/owner share after the split.",crew:"Crew only: paid from the crew share after the split.",each:"Crew, split equally: every crew member on board pays the same amount, taken off his own pay (for example groceries).",custom:"Custom split: the cost is divided by the percentage you set."})[e.to||"shared"]} Type the total from the invoice, or fill in quantity and price per unit and the total is worked out for you. Quantity, unit and price are optional.</p>
       <div class="edit-done"><button class="add small" data-toggle="${i}">Done</button></div>
       </div>
     </div>`}).join(""):`<p class="hint">No expenses yet. Scan a receipt or type one in.</p>`;
@@ -724,6 +776,9 @@ function expItems(kind){
   state.exp.forEach(e=>{const a=cents(e.amt),to=e.to||"shared";if(!a)return;
     if(kind==="shared"&&to==="shared")rows.push({k:"e",name:e.name||"Unnamed expense",amt:a,qty:num(e.qty),unit:(e.unit||"").trim(),rc:e.status==="checked"});
     if(kind==="crew"&&(to==="crew"||to==="custom")){const p=to==="crew"?100:Math.min(100,Math.max(0,num(e.crewPct)));const c=Math.round(a*p/100);if(c)rows.push({k:"e",name:(e.name||"Unnamed expense")+(to==="custom"?` (crew ${pctTxt(p)}%)`:""),amt:c,qty:num(e.qty),unit:(e.unit||"").trim(),rc:e.status==="checked"})}});
+  ifqRows(state.tickets).forEach(x=>{if(!x.amt)return;
+    if(kind==="shared"&&x.to==="shared")rows.push({k:"g",name:x.label,amt:x.amt,qty:0,unit:"",rc:false});
+    if(kind==="crew"&&x.to==="crew")rows.push({k:"g",name:x.label,amt:x.amt,qty:0,unit:"",rc:false})});
   state.gear.forEach(g=>{const a=gearC(g),to=g.to||"shared";if(!a)return;const nm="Lost gear: "+(g.item||"unnamed");
     if(kind==="shared"&&to==="shared")rows.push({k:"g",name:nm,amt:a,qty:num(g.qty),unit:(g.unit||"").trim(),rc:false});
     if(kind==="crew"&&(to==="crew"||to==="custom")){const p=to==="crew"?100:Math.min(100,Math.max(0,num(g.crewPct)));const c=Math.round(a*p/100);if(c)rows.push({k:"g",name:nm+(to==="custom"?` (crew ${pctTxt(p)}%)`:""),amt:c,qty:num(g.qty),unit:(g.unit||"").trim(),rc:false})}});
@@ -756,7 +811,9 @@ function slipText(i,r){
     L("Value per share:",fmtC(Math.round(r.perShareExact*100))),
     L(`Your share (${shTxt(num(c.share))}${daysTxt(c)}):`,fmtC(p.share)),
     ...c.deds.map(d=>L(`Less ${d.type.toLowerCase()}:`,"\u2212"+fmtC(cents(d.amt)))),
+    ...(p.each||[]).map(x=>L(`Less ${x.name.toLowerCase()} (split equally):`,"\u2212"+fmtC(x.amt))),
     L("PAY:",fmtC(p.pay)),
+    ...(p.pay<0?[L("Owes the vessel:",fmtC(-p.pay))]:[]),
     ``,
     ...(r.fixed?[`Rule: crew pool divided by a fixed ${shTxt(r.divShares)} shares. Shares not used this trip go to the vessel/owner.`,``]:[`Rule: crew pool divided by the shares on board. Shares not used (someone who left or joined mid-trip) go to the rest of the crew.`,``]),
     `Shares on board this trip:`,
@@ -778,7 +835,7 @@ function renderResults(){
   $("ticketSum").textContent=nTk?`${nLand} ${nLand===1?"landing":"landings"} \u00b7 ${nTk} ${nTk===1?"ticket":"tickets"} \u00b7 ${lbsAll.toLocaleString("en-US")} lb \u00b7 ${fmtC(r.gross)}`:"";
   const tdups=findTicketDups();
   state.tickets.forEach((t,ti)=>{const d=$("t-dup-"+ti);if(!d)return;const x=tdups.find(z=>z.i===ti);d.hidden=!x;d.innerHTML=x?`<span>${x.msg}</span><span class="dup-acts"><button class="add small" data-tdupok="${ti}">Keep both</button><button class="add small" data-del="ticket" data-t="${ti}">Remove this one</button></span>`:""});
-  const TO_SHORT={shared:"Before split",vessel:"Owner only",crew:"Crew only"};
+  const TO_SHORT={shared:"Before split",vessel:"Owner only",crew:"Crew only",each:"Equal per person"};
   state.exp.forEach((e,i)=>{
     const n=$("er-name-"+i);if(!n)return;
     n.textContent=e.name||"Unnamed expense";
@@ -836,11 +893,15 @@ function renderResults(){
       <div class="role">${esc(c.role)} \u00b7 ${shTxt(num(c.share))} ${num(c.share)===1?"share":"shares"}${daysTxt(c)}</div>
       <div class="l"><span>Share of crew pool</span><span class="sum">${fmtC(p.share)}</span></div>
       ${c.deds.map(d=>`<div class="l"><span>${esc(d.type)}</span><span class="sum neg">${fmtC(-cents(d.amt))}</span></div>`).join("")}
+      ${(p.each||[]).map(x=>`<div class="l"><span>${esc(x.name)} (split equally)</span><span class="sum neg">${fmtC(-x.amt)}</span></div>`).join("")}
       <div class="l pay"><span>Pay</span><span class="sum${p.pay<0?" neg":""}">${fmtC(p.pay)}</span></div>
-      ${p.pay<0?`<p class="warn">Deductions are larger than this share.</p>`:""}
+      ${p.pay<0?`<p class="warn">Deductions are larger than this share: ${esc(c.name||"he")} owes the vessel ${fmtC(-p.pay)}.</p>`:""}
       ${c.tinStatus!=="ok"?`<p class="warn small">W-9 not confirmed. Backup withholding may be required before payment. Check with your accountant. <button class="w9" data-w9="${i}">${c.tinStatus==="review"?"Mark W-9 checked":"Mark W-9 received"}</button></p>`:""}
       <button class="copy" data-copy="${i}">Copy slip</button>
     </div>`}).join("");
+  {const st=ifqStatements(state.tickets,{vessel:$("vessel").value,trip:curTrip()});$("ifqWrap").hidden=!st.length;
+   $("ifqSlips").innerHTML=st.map((x,k)=>`<div class="slip"><h3>${esc(x.holder)}</h3><div class="role">IFQ lease holder${x.area?` \u00b7 ${esc(x.area)}`:""}</div><div class="l pay"><span>Lease fee due</span><span class="sum">${fmtC(x.amt)}</span></div><button class="copy" data-ifqcopy="${k}">Copy statement</button></div>`).join("")}
+  ifqRows(state.tickets).forEach(x=>{const el=$(`q-amt-${x.ti}-${x.j}`);if(el)el.textContent=`(${fmtC(x.base)} \u2212 ${fmtC(x.tax)} fish taxes) \u00d7 ${pctTxt(x.pct)} % = ${fmtC(x.amt)}`});
   const unchecked=[...state.tickets,...state.exp].filter(o=>o.status==="scanned").length;
   const ok=r.diff===0 && r.vesselBase+r.crewBase===r.basis && r.vessel+r.pool+r.expenses===r.gross && r.sumShares-r.totalDed===r.netPaid;
   $("recon").innerHTML=`
@@ -853,7 +914,7 @@ function renderResults(){
     <div class="rc"><span>Crew share of basis (${pctTxt(r.pct)} %)</span><span class="sum">${fmtC(r.crewBase)}</span></div>
     <div class="rc"><span>Expenses charged to crew</span><span class="sum neg">${fmtC(-r.crewOnly)}</span></div>
     <div class="rc total"><span>Gross crew pool</span><span class="sum">${fmtC(r.pool)}</span></div>
-    <div class="rc"><span>Total personal deductions</span><span class="sum neg">${fmtC(-r.totalDed)}</span></div>
+    <div class="rc"><span>Total personal deductions${r.eachTotal?`<small class="hint" style="display:block">Includes ${fmtC(r.eachTotal)} of expenses split equally per person</small>`:""}</span><span class="sum neg">${fmtC(-r.totalDed)}</span></div>
     ${r.unused?`<div class="rc"><span>Unused shares to vessel/owner</span><span class="sum">${fmtC(r.unused)}</span></div>`:""}
     <div class="rc total"><span>Net pay to crew</span><span class="sum">${fmtC(r.netPaid)}</span></div>
     <div class="rc"><span>Rounding cents allocated<small class="hint" style="display:block">${r.leftover} ${r.leftover===1?"cent":"cents"} placed by the rule below</small></span><span class="sum">${fmtC(r.leftover)}</span></div>
@@ -881,6 +942,7 @@ function renderArchive(){
       <div class="tr tot"><span>Value per share</span><span class="sum">${fmtC(a.perShare)}</span></div>
       ${a.crew.map((c,j)=>`<div class="tr"><span>${esc(c.name||"Unnamed")} \u00b7 ${shTxt(c.share)}${esc(c.days||"")}</span><span class="acts"><span class="sum">${fmtC(c.pay)}</span><button class="copy" data-acopy="${a.id}" data-j="${j}">Copy slip</button></span></div>`).join("")}
     </div>
+    ${(a.ifq||[]).map((x,j)=>`<div class="tr"><span>IFQ: ${esc(x.holder)}${x.area?" \u00b7 "+esc(x.area):""}</span><span class="acts"><span class="sum">${fmtC(x.amt)}</span><button class="copy" data-aifq="${a.id}" data-j="${j}">Copy statement</button></span></div>`).join("")}
     <button class="step" data-acsv="${a.id}">Download this version (CSV)</button>
     ${!a.superseded&&!state.correcting?`<button class="step" data-correct="${a.id}">Create correction</button>`:""}</details>`).join(""):`<p class="hint">No closed trips yet.</p>`;
   const bn=$("corrBanner");if(bn){const a=A.find(x=>x.id===state.correcting);bn.hidden=!a;if(a)bn.innerHTML=`<strong>Correcting \u201c${esc(a.label)}\u201d, version ${(a.version||1)+1}.</strong> Fix what was wrong, check the numbers, and close the trip again. The original stays under Closed trips, marked Superseded.`}
@@ -1025,6 +1087,7 @@ function settlementCSV(){
   add("Total","Gross catch value","",r.gross);
   state.exp.forEach(e=>add("Expense",`${e.name} (${e.to||"shared"})`,"",cents(e.amt)));
   state.gear.forEach(g=>add("Lost gear",`${g.item} (${g.to||"shared"})`,"",gearC(g)));
+  ifqRows(state.tickets).forEach(x=>add("IFQ lease",`${x.holder}${x.area?" "+x.area:""} · ${tName(x.t)}${x.sp?" · "+x.sp:""} · (${money(x.base)} − ${money(x.tax)} fish taxes) × ${pctTxt(x.pct)}% (${x.to})`,"",x.amt));
   add("Total","Expenses before split","",r.shared);
   add("Total","Settlement basis","",r.basis);
   add("Total",`Crew pool (${pctTxt(r.pct)} %)`,"",r.pool);
@@ -1034,6 +1097,7 @@ function settlementCSV(){
     const p=r.people[i],who=c.name||"Unnamed";
     add("Crew share",`${c.role} · ${shTxt(num(c.share))} shares`,who,p.share);
     c.deds.forEach(d=>add("Deduction",d.type,who,-cents(d.amt)));
+    (p.each||[]).forEach(x=>add("Deduction",`${x.name} (split equally)`,who,-x.amt));
     add("Net pay","Pay",who,p.pay);
   });
   return csvOf(rows);
@@ -1049,6 +1113,7 @@ function archiveCSV(a){
   add("Total","Gross catch value","",a.gross);
   a.exp.forEach(e=>add("Expense",`${e.name} (${e.to||"shared"})`,"",cents(e.amt)));
   a.gear.forEach(g=>add("Lost gear",`${g.item} (${g.to||"shared"})`,"",gearC(g)));
+  ifqRows(a.tickets).forEach(x=>add("IFQ lease",`${x.holder}${x.area?" "+x.area:""} · ${tName(x.t)}${x.sp?" · "+x.sp:""} · (${money(x.base)} − ${money(x.tax)} fish taxes) × ${pctTxt(x.pct)}% (${x.to})`,"",x.amt));
   add("Total","Expenses before split","",a.shared);
   add("Total",`Crew pool (${pctTxt(a.pct)} %)`,"",a.pool);
   add("Total",a.fixed?`Pool divided by a fixed ${shTxt(a.divShares)} shares`:`Pool divided by ${shTxt(a.divShares)} shares on board`,"",null);
@@ -1057,6 +1122,7 @@ function archiveCSV(a){
   a.crew.forEach(c=>{const who=c.name||"Unnamed";
     add("Crew share",`${c.role} · ${shTxt(c.share)} shares${c.days||""}`,who,c.shareC);
     (c.deds||[]).forEach(d=>add("Deduction",d.type,who,-cents(d.amt)));
+    (c.each||[]).forEach(x=>add("Deduction",`${x.name} (split equally)`,who,-x.amt));
     add("Net pay","Pay",who,c.pay)});
   return csvOf(rows);
 }
@@ -1071,9 +1137,9 @@ function qboCSV(){
   if($("qbFull").checked){
     dr(A("qbAR"),r.gross,`${trip} · fish tickets`);
     cr(A("qbSales"),r.gross,`${trip} · fish tickets`);
-    const exp=state.exp.reduce((s,e)=>s+cents(e.amt),0)+state.gear.reduce((s,g)=>s+gearC(g),0);
-    dr(A("qbExp"),exp,`${trip} · trip expenses and lost gear`);
-    cr(A("qbAP"),exp,`${trip} · trip expenses and lost gear`);
+    const exp=state.exp.reduce((s,e)=>s+cents(e.amt),0)+state.gear.reduce((s,g)=>s+gearC(g),0)+ifqRows(state.tickets).reduce((s,x)=>s+x.amt,0);
+    dr(A("qbExp"),exp,`${trip} · trip expenses, lost gear and IFQ lease fees`);
+    cr(A("qbAP"),exp,`${trip} · trip expenses, lost gear and IFQ lease fees`);
   }
   state.crew.forEach((c,i)=>{
     if(c.off)return;
@@ -1128,14 +1194,14 @@ function closeTrip(){
   const r=run(),label=curTrip();
   if(r.gross<=0){exStatus("Cannot close yet. Add at least one fish ticket with a value greater than $0.",1);return}
   if(!state.crew.some(c=>!c.off)){exStatus("Add the crew before closing the trip.",1);return}
-  if(r.people.some(p=>p.pay<0)){exStatus("Someone's deductions are larger than their share. Fix that before closing the trip.",1);return}
   const unT=state.tickets.filter(o=>o.status==="scanned").map(t=>"Fish ticket "+(t.no?"#"+t.no:"")+(t.label?" ("+t.label+")":"")),
         unE=state.exp.filter(o=>o.status==="scanned").map(e=>"Receipt: "+(e.name||"Unnamed expense")+" "+fmtC(cents(e.amt)));
   const un=[...unT,...unE];
   if(un.length){exStatus(`Cannot close yet. Not checked: ${un.join("; ")}. Check the numbers against the photo or the paper copy and tap “Numbers checked”.`,1);return}
   const np=[];state.tickets.forEach(t=>t.lines.forEach(l=>{if(num(l.lbs)>0&&num(l.price)<=0)np.push(`${l.name||"Unnamed line"} on ticket ${t.no?"#"+t.no:t.label||""}`.trim())}));
   if(np.length){exStatus(`Cannot close yet. No price: ${np.join("; ")}. Fill in the price per lb from the buyer's settlement.`,1);return}
-  if(!confirm(`Close “${label}”? The settlement is saved under Closed trips and can no longer be changed. Each crew member's share is added to the year-to-date totals, and the fish tickets, expenses, lost gear and personal deductions are cleared for the next trip.`))return;
+  const owes=state.crew.map((c,i)=>[c,r.people[i]]).filter(([c,p])=>!c.off&&p.pay<0).map(([c,p])=>`${c.name||"Unnamed"} owes the vessel ${fmtC(-p.pay)}`);
+  if(!confirm(`Close “${label}”? The settlement is saved under Closed trips and can no longer be changed. Each crew member's share is added to the year-to-date totals, and the fish tickets, expenses, lost gear and personal deductions are cleared for the next trip.`+(owes.length?`\n\nNote: deductions are larger than the share for:\n${owes.join("\n")}\nThis shows as a negative pay on the slip. Add it as an advance on the next trip if it is to be carried over.`:"")))return;
   state.crew.forEach(c=>{if(!c.cid)c.cid=newCid();if(typeof c.name==="string")c.name=c.name.replace(/\s+/g," ").trim()});
   const act=state.crew.map((c,i)=>[c,i]).filter(([c])=>!c.off);
   const prev=state.correcting?(state.archive||[]).find(x=>x.id===state.correcting):null;
@@ -1147,7 +1213,8 @@ function closeTrip(){
     pct:r.pct,fixed:r.fixed,divShares:r.divShares,totalShares:r.totalShares,gross:r.gross,shared:r.shared,vesselOnly:r.vesselOnly,crewOnly:r.crewOnly,
     basis:r.basis,pool:r.pool,vesselNet:r.vessel,unused:r.unused,perShare:Math.round(r.perShareExact*100),
     tickets:JSON.parse(JSON.stringify(state.tickets.map(t=>({...t,photos:[]})))),exp:JSON.parse(JSON.stringify(state.exp.map(e=>({...e,photos:[]})))),gear:JSON.parse(JSON.stringify(state.gear)),
-    crew:act.map(([c,i])=>({cid:c.cid,name:c.name,role:c.role,share:num(c.share),days:daysTxt(c),deds:JSON.parse(JSON.stringify(c.deds)),shareC:r.people[i].share,ded:r.people[i].ded,pay:r.people[i].pay})),
+    crew:act.map(([c,i])=>({cid:c.cid,name:c.name,role:c.role,share:num(c.share),days:daysTxt(c),deds:JSON.parse(JSON.stringify(c.deds)),each:r.people[i].each||[],shareC:r.people[i].share,ded:r.people[i].ded,pay:r.people[i].pay})),
+    ifq:ifqStatements(state.tickets,{vessel:$("vessel").value,trip:label}),
     slips:act.map(([c,i])=>slipText(i,r))
   }];
   state.crew.forEach((c,i)=>{
@@ -1172,6 +1239,7 @@ document.addEventListener("input",e=>{
   const k=t.dataset.k;
   if(k==="line"){state.tickets[+t.dataset.t].lines[+t.dataset.i][t.dataset.f]=t.value}
   else if(k==="ticket"){state.tickets[+t.dataset.t][t.dataset.f]=t.value}
+  else if(k==="ifq"){const q=state.tickets[+t.dataset.t].ifq[+t.dataset.j];q[t.dataset.f]=t.value}
   else if(k){state[k][+t.dataset.i][t.dataset.f]=t.value;
     if(k==="exp"){const ix=t.dataset.i,e=state.exp[+ix],f=t.dataset.f;
       if(f==="qty"||f==="price"){const q=num(e.qty),pr=num(e.price);if(q>0&&pr>0){e.amt=Math.round(q*pr*100)/100;const a=$("e-amt-"+ix);if(a)a.value=e.amt}}
@@ -1184,6 +1252,7 @@ document.addEventListener("input",e=>{
 document.addEventListener("change",e=>{
   const t=e.target;
   if(t.dataset.k==="crew"&&t.dataset.f==="name"){const c=state.crew[+t.dataset.i],v=String(t.value).replace(/\s+/g," ").trim();if(c&&c.name!==v){c.name=v;t.value=v;renderResults()}}
+  if(t.dataset.k==="ifq"&&t.tagName==="SELECT"){const q=state.tickets[+t.dataset.t].ifq[+t.dataset.j];q[t.dataset.f]=t.value;const id=t.id;renderLines();renderResults();const el=$(id);if(el)el.focus();return}
   if(t.id==="exOpen"){const f=t.files[0];t.value="";if(f)openSeason(f);return}
   if(t.id==="qbFull"){$("qbFullBox").hidden=!t.checked;return}
   if(t.id==="tripDays"){renderLines();renderResults();return}
@@ -1195,7 +1264,7 @@ document.addEventListener("change",e=>{
     renderLines();renderResults();const el=$(id);if(el)el.focus();return}
   if(t.tagName==="SELECT"&&t.dataset.sharesel!==undefined){
     const c=state.crew[+t.dataset.sharesel],id=t.id;
-    if(t.value==="__other"){const r=prompt("Shares for this person (for example 1.2)",String(c.share??1));const v=r==null?NaN:parseFloat(String(r).replace(",","."));if(isFinite(v)&&v>=0&&v<=10)c.share=Math.round(v*1000)/1000;else if(r!=null)alert("Type a number between 0 and 10, for example 1.2")}
+    if(t.value==="__other"){const r=prompt("Shares for this person (for example 1.2). Boats that pay in percent can type the percent, for example 14 for 14 %, and set the crew share to the total of all crew percents.",String(c.share??1));const v=r==null?NaN:parseFloat(String(r).replace(",","."));if(isFinite(v)&&v>=0&&v<=100)c.share=Math.round(v*1000)/1000;else if(r!=null)alert("Type a number between 0 and 100, for example 1.2 or 14")}
     else c.share=+t.value;
     renderLines();renderResults();const el=$(id);if(el)el.focus();return}
   if(t.tagName==="SELECT"&&t.dataset.unitsel!==undefined){
@@ -1227,6 +1296,19 @@ document.addEventListener("click",e=>{
   else if(t.dataset.del==="line"){const tk=state.tickets[+t.dataset.t];tk.lines.splice(+t.dataset.i,1);if(tk.status==="checked")tk.status="scanned"}
   else if(t.dataset.del==="ticket"){state.tickets.splice(+t.dataset.t,1);ui.tOpen.clear()}
   else if(t.dataset.del){if(t.dataset.del==="crew"){const c=state.crew[+t.dataset.i];if(c&&(String(c.name||"").trim()||(c.prior||[]).length)){c.off=true;c.days="";c.deds=[];renderLines();renderResults();return}}state[t.dataset.del].splice(+t.dataset.i,1);if(t.dataset.del==="exp")ui.expOpen.clear()}
+  else if(t.dataset.addifq!==undefined){const ti=+t.dataset.addifq,tk=state.tickets[ti];tk.ifq=tk.ifq||[];
+    const tax=tk.no?state.exp.filter(e=>e.src==="#"+tk.no).reduce((s,e)=>s+num(e.amt),0):0;
+    tk.ifq.push({holder:"",area:"",pct:"",sp:"",tax:tax?+tax.toFixed(2):"",to:"shared"});focusSel=`#q-holder-${ti}-${tk.ifq.length-1}`}
+  else if(t.dataset.delifq!==undefined){state.tickets[+t.dataset.delifq].ifq.splice(+t.dataset.j,1)}
+  else if(t.dataset.ifqcopy!==undefined){const x=ifqStatements(state.tickets,{vessel:$("vessel").value,trip:curTrip()})[+t.dataset.ifqcopy];if(!x)return;
+    const done=()=>{t.textContent="Copied";setTimeout(()=>t.textContent="Copy statement",1500)};
+    try{navigator.clipboard.writeText(x.text).then(done).catch(()=>{fallback(x.text);done()})}catch(_){fallback(x.text);done()}
+    return}
+  else if(t.dataset.aifq!==undefined){const a=(state.archive||[]).find(x=>x.id===t.dataset.aifq);let text=a&&a.ifq&&a.ifq[+t.dataset.j]&&a.ifq[+t.dataset.j].text;if(!text)return;
+    if(a.superseded){const nx=(state.archive||[]).find(x=>x.id===a.supersededBy);text=`SUPERSEDED \u2013 NOT VALID. Replaced by version ${nx?nx.version:(a.version||1)+1}.\n\n`+text}
+    const done=()=>{t.textContent="Copied";setTimeout(()=>t.textContent="Copy statement",1500)};
+    try{navigator.clipboard.writeText(text).then(done).catch(()=>{fallback(text);done()})}catch(_){fallback(text);done()}
+    return}
   else if(t.dataset.addline!==undefined){const ti=+t.dataset.addline;state.tickets[ti].lines.push({name:"",lbs:0,price:0});focusSel=`#c-name-${ti}-${state.tickets[ti].lines.length-1}`}
   else if(t.dataset.delded!==undefined){state.crew[+t.dataset.delded].deds.splice(+t.dataset.j,1)}
   else if(t.dataset.addded!==undefined){const i=+t.dataset.addded;state.crew[i].deds.push({type:"Advance",amt:0});focusSel=`#d-amt-${i}-${state.crew[i].deds.length-1}`}
@@ -1238,7 +1320,7 @@ document.addEventListener("click",e=>{
   else if(t.id==="addCrew"){state.crew.push({cid:newCid(),name:"",role:"Deckhand",share:1,deds:[],tin:null,tinStatus:"missing",prior:[]});focusSel=`#m-name-${state.crew.length-1}`}
   else if(t.dataset.w9!==undefined){const c=state.crew[+t.dataset.w9];c.tinStatus="ok";renderResults();return}
   else if(t.id==="exCsv"){download(`CrewSettle-${slug(curTrip())}${corrTag()}-settlement.csv`,settlementCSV(),"text/csv").then(ok=>{if(ok)exStatus("Settlement CSV saved. It opens in Excel or Google Sheets.")});return}
-  else if(t.id==="exQbo"){const q=qboCSV();if(!q.balanced||q.neg){exStatus(q.neg?"Someone's deductions are larger than their share. Fix that before exporting.":"The journal does not balance. Check the numbers before exporting.");return}download(`CrewSettle-${slug(curTrip())}${corrTag()}-quickbooks-journal-DRAFT.csv`,q.csv,"text/csv").then(ok=>{if(ok)exStatus(`QuickBooks journal saved (draft). Debits ${fmtC(q.d)} = credits ${fmtC(q.k)}. Import into a test file first.`)});return}
+  else if(t.id==="exQbo"){const q=qboCSV();if(!q.balanced){exStatus("The journal does not balance. Check the numbers before exporting.");return}download(`CrewSettle-${slug(curTrip())}${corrTag()}-quickbooks-journal-DRAFT.csv`,q.csv,"text/csv").then(ok=>{if(ok)exStatus(`QuickBooks journal saved (draft). Debits ${fmtC(q.d)} = credits ${fmtC(q.k)}. Import into a test file first.`+(q.neg?" Note: someone's deductions are larger than the share. Only the part covered by the share is in this journal; the rest is still owed to the vessel.":""))});return}
   else if(t.id==="exSave"){saveSeason();return}
   else if(t.id==="exClose"){closeTrip();return}
   else if(t.id==="ye1"){copyReport();return}
