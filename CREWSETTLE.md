@@ -50,7 +50,8 @@ All money is calculated in whole cents. The core is the function `settle()` in `
 - The app does not file anything with the IRS.
 - The QuickBooks journal export is a **draft** until an accountant has tested it.
 - QuickBooks Online (US) import of the journal was tested in a sandbox on 2026-10-21: it imports and balances. **QuickBooks does not stop the same journal from being imported twice** (same file and same journal number created a second entry). So CrewSettle remembers every journal it has downloaded, warns before the same journal number is downloaded again, shows on each closed trip which journals were exported, and when a trip that was exported is corrected, tells the user to reverse or delete the old journal in QuickBooks before importing the corrected one.
-- In the journal, crew names go in the description by default; the Name column is only filled when the user says the crew are set up as vendors in QuickBooks (otherwise QuickBooks stops the import). Dates are MM/DD/YYYY.
+- In the journal, crew names go in the description by default; the Name column is only filled when the user says the crew are set up as vendors in QuickBooks (otherwise QuickBooks stops the import). Dates are MM/DD/YYYY. Descriptions use plain characters only (QuickBooks read "·" as a wrong character).
+- If deductions are larger than the share, the journal still balances: the advance is repaid up to the share, and any other deductions not covered are added to what the crew member owes (debit Crew advances), so the full debt shows in the books. Tested with CrewSettle's own export file on 2026-10-21: imports and balances.
 
 ## 5. How the system is built
 

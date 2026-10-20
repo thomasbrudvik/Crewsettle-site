@@ -483,7 +483,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
     
   </section>
 
-  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.<br><span class="build">CrewSettle Pilot · build 2026-10-21.1</span></footer>
+  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.<br><span class="build">CrewSettle Pilot · build 2026-10-21.2</span></footer>
 </div>
 <nav class="tabbar" aria-label="Sections"><div class="tabbar-in"><button class="tab" data-tab="tickets" id="tab-tickets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg><span>Fish tickets</span><b class="tabsum" id="tabsum-tickets"></b></button><button class="tab" data-tab="expenses" id="tab-expenses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span>Expenses</span><b class="tabsum" id="tabsum-expenses"></b></button><button class="tab" data-tab="crew" id="tab-crew"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.9.4 5 2.8 5 5.8"/></svg><span>Crew</span><b class="tabsum" id="tabsum-crew"></b></button><button class="tab" data-tab="settlement" id="tab-settlement"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7h14"/><path d="M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/></svg><span>Settlement</span><b class="tabsum" id="tabsum-settlement"></b></button><button class="tab" data-tab="yearend" id="tab-yearend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Year end</span><b class="tabsum" id="tabsum-yearend"></b></button></div></nav>
 <div class="lightbox" id="lightbox" hidden><div><img id="lbImg" alt="Scanned document"><button id="lbClose">Close</button></div></div>
@@ -1133,8 +1133,10 @@ function qboCSV(){
   const useNames=$("qbNames").checked;
   const A=id=>$(id).value.trim()||$(id).defaultValue;
   const rows=[["Journal No","Journal Date","Account","Debits","Credits","Description","Name"]];
-  const dr=(acc,c,desc,name="")=>{if(c>0)rows.push([no,date,acc,money(c),"",desc,name])};
-  const cr=(acc,c,desc,name="")=>{if(c>0)rows.push([no,date,acc,"",money(c),desc,name])};
+  // QuickBooks may read the file with the wrong character set, so keep descriptions to plain characters.
+  const asc=x=>String(x).replace(/\u00b7/g,"-").replace(/[\u2013\u2014\u2212]/g,"-").replace(/[\u2018\u2019]/g,"'").replace(/[\u201c\u201d]/g,'"').replace(/\s+/g," ").trim();
+  const dr=(acc,c,desc,name="")=>{if(c>0)rows.push([no,date,acc,money(c),"",asc(desc),name])};
+  const cr=(acc,c,desc,name="")=>{if(c>0)rows.push([no,date,acc,"",money(c),asc(desc),name])};
   if($("qbFull").checked){
     dr(A("qbAR"),r.gross,`${trip} · fish tickets`);
     cr(A("qbSales"),r.gross,`${trip} · fish tickets`);
@@ -1147,9 +1149,13 @@ function qboCSV(){
     const p=r.people[i],nm=c.name||"Unnamed",who=useNames?nm:"",tag=useNames?"":` \u00b7 ${nm}`;
     const adv=c.deds.filter(d=>d.type==="Advance").reduce((s,d)=>s+cents(d.amt),0);
     const other=p.ded-adv;
+    // If deductions are larger than the share, the part of the other deductions not covered by the share
+    // is added to what the crew member owes (Crew advances), so nothing is left out of the books.
+    const advRec=Math.min(adv,p.share),otherOwed=other-Math.min(other,Math.max(0,p.share-adv));
     dr(A("qbShare"),p.share,`${trip} · crew share${tag}`,who);
-    cr(A("qbAdv"),Math.min(adv,p.share),`${trip} · advance repaid${tag}`,who);
-    cr(A("qbDed"),Math.min(other,Math.max(0,p.share-adv)),`${trip} · deductions${tag}`,who);
+    dr(A("qbAdv"),otherOwed,`${trip} · owed by crew member, not covered by share${tag}`,who);
+    cr(A("qbAdv"),advRec,`${trip} · advance repaid${tag}`,who);
+    cr(A("qbDed"),other,`${trip} · deductions${tag}`,who);
     cr(A("qbPay"),Math.max(0,p.pay),`${trip} · net pay${tag}`,who);
   });
   let d=0,k=0;rows.slice(1).forEach(x=>{d+=cents(x[3]);k+=cents(x[4])});
@@ -1326,7 +1332,7 @@ document.addEventListener("click",e=>{
   else if(t.id==="exQbo"){const q=qboCSV();if(!q.balanced){exStatus("The journal does not balance. Check the numbers before exporting.");return}
     const no=$("qbNo").value||"CS-1",prevX=(state.qbLog||[]).filter(x=>x.no===no);
     if(prevX.length&&!confirm(`Journal ${no} was already downloaded ${prevX.map(x=>new Date(x.at).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})).join(", ")}.\n\nQuickBooks does NOT stop the same journal being imported twice. If you import it again, the crew pay is entered twice.\n\nOnly download again if the first file was never imported, or you have deleted it in QuickBooks. Download anyway?`))return;
-    download(`CrewSettle-${slug(curTrip())}${corrTag()}-quickbooks-journal-DRAFT.csv`,q.csv,"text/csv").then(ok=>{if(ok){state.qbLog=[...(state.qbLog||[]),{no,trip:curTrip(),at:new Date().toISOString(),total:q.d,aid:""}];renderResults();exStatus(`QuickBooks journal ${no} saved (draft). Debits ${fmtC(q.d)} = credits ${fmtC(q.k)}. Import it into QuickBooks once only: QuickBooks does not stop the same journal being imported twice. Import into a test file first.`+(q.neg?" Note: someone's deductions are larger than the share. Only the part covered by the share is in this journal; the rest is still owed to the vessel.":""))}});return}
+    download(`CrewSettle-${slug(curTrip())}${corrTag()}-quickbooks-journal-DRAFT.csv`,q.csv,"text/csv").then(ok=>{if(ok){state.qbLog=[...(state.qbLog||[]),{no,trip:curTrip(),at:new Date().toISOString(),total:q.d,aid:""}];renderResults();exStatus(`QuickBooks journal ${no} saved (draft). Debits ${fmtC(q.d)} = credits ${fmtC(q.k)}. Import it into QuickBooks once only: QuickBooks does not stop the same journal being imported twice. Import into a test file first.`+(q.neg?" Note: someone's deductions are larger than the share. What he still owes the vessel stays in the Crew advances account.":""))}});return}
   else if(t.id==="exSave"){saveSeason();return}
   else if(t.id==="exClose"){closeTrip();return}
   else if(t.id==="ye1"){copyReport();return}
