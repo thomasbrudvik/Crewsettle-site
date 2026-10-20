@@ -483,7 +483,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
     
   </section>
 
-  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.<br><span class="build">CrewSettle Pilot · build 2026-10-20.4</span></footer>
+  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.<br><span class="build">CrewSettle Pilot · build 2026-10-21.1</span></footer>
 </div>
 <nav class="tabbar" aria-label="Sections"><div class="tabbar-in"><button class="tab" data-tab="tickets" id="tab-tickets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg><span>Fish tickets</span><b class="tabsum" id="tabsum-tickets"></b></button><button class="tab" data-tab="expenses" id="tab-expenses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span>Expenses</span><b class="tabsum" id="tabsum-expenses"></b></button><button class="tab" data-tab="crew" id="tab-crew"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.9.4 5 2.8 5 5.8"/></svg><span>Crew</span><b class="tabsum" id="tabsum-crew"></b></button><button class="tab" data-tab="settlement" id="tab-settlement"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7h14"/><path d="M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/></svg><span>Settlement</span><b class="tabsum" id="tabsum-settlement"></b></button><button class="tab" data-tab="yearend" id="tab-yearend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Year end</span><b class="tabsum" id="tabsum-yearend"></b></button></div></nav>
 <div class="lightbox" id="lightbox" hidden><div><img id="lbImg" alt="Scanned document"><button id="lbClose">Close</button></div></div>
@@ -491,7 +491,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
 <script>
 const DED_TYPES=["Advance","License","Gear","Travel","Other"];
 const CHARGE=[["shared","Before split"],["vessel","Vessel/owner only"],["crew","Crew only"],["each","Crew, split equally per person"],["custom","Custom split"]];
-const state={tickets:[],exp:[],gear:[],crew:[],archive:[],correcting:"",corrReason:""};
+const state={tickets:[],exp:[],gear:[],crew:[],archive:[],qbLog:[],correcting:"",corrReason:""};
 const TAX_YEAR=2026;
 const ui={expOpen:new Set(),tOpen:new Set()};
 const dateTxt=v=>{v=v||"";if(/^\d{4}-\d{2}-\d{2}$/.test(v)){const d=new Date(v+"T12:00:00");if(!isNaN(d))return d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}return v};
@@ -934,7 +934,7 @@ const hasHistory=c=>(c.prior||[]).length>0||(state.archive||[]).some(a=>a.crew.s
 function renderArchive(){
   const el=$("archive");if(!el)return;const A=state.archive||[];
   el.innerHTML=A.length?[...A].reverse().map(a=>`<details class="arch${a.superseded?" sup":""}"><summary><b>${esc(a.label)}${(a.version||1)>1?` \u00b7 version ${a.version}`:""}</b>${a.superseded?`<span class="pill warn">Superseded</span>`:state.correcting===a.id?`<span class="pill warn">Being corrected</span>`:""}<span class="sum">${fmtC(a.gross)}</span></summary>
-    <p class="hint">Closed ${esc(new Date(a.closedAt).toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}))}${a.closedBy?" by "+esc(a.closedBy):""}. Locked.${a.superseded?" Replaced by a corrected version, kept for the record.":""}${a.reason?" Reason for correction: "+esc(a.reason)+".":""}</p>
+    <p class="hint">Closed ${esc(new Date(a.closedAt).toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}))}${a.closedBy?" by "+esc(a.closedBy):""}. Locked.${a.superseded?" Replaced by a corrected version, kept for the record.":""}${a.reason?" Reason for correction: "+esc(a.reason)+".":""}${(a.qb||[]).length?` Exported to QuickBooks: ${a.qb.map(x=>esc(x.no)+" ("+esc(new Date(x.at).toLocaleDateString("en-US",{month:"short",day:"numeric"}))+")").join(", ")}.`:""}</p>
     <div class="trips">
       <div class="tr"><span>Gross catch value</span><span class="sum">${fmtC(a.gross)}</span></div>
       <div class="tr"><span>Expenses before split</span><span class="sum">${fmtC(-a.shared)}</span></div>
@@ -946,7 +946,7 @@ function renderArchive(){
     ${(a.ifq||[]).map((x,j)=>`<div class="tr"><span>IFQ: ${esc(x.holder)}${x.area?" \u00b7 "+esc(x.area):""}</span><span class="acts"><span class="sum">${fmtC(x.amt)}</span><button class="copy" data-aifq="${a.id}" data-j="${j}">Copy statement</button></span></div>`).join("")}
     <button class="step" data-acsv="${a.id}">Download this version (CSV)</button>
     ${!a.superseded&&!state.correcting?`<button class="step" data-correct="${a.id}">Create correction</button>`:""}</details>`).join(""):`<p class="hint">No closed trips yet.</p>`;
-  const bn=$("corrBanner");if(bn){const a=A.find(x=>x.id===state.correcting);bn.hidden=!a;if(a)bn.innerHTML=`<strong>Correcting \u201c${esc(a.label)}\u201d, version ${(a.version||1)+1}.</strong> Fix what was wrong, check the numbers, and close the trip again. The original stays under Closed trips, marked Superseded.`}
+  const bn=$("corrBanner");if(bn){const a=A.find(x=>x.id===state.correcting);bn.hidden=!a;if(a)bn.innerHTML=`<strong>Correcting \u201c${esc(a.label)}\u201d, version ${(a.version||1)+1}.</strong> Fix what was wrong, check the numbers, and close the trip again. The original stays under Closed trips, marked Superseded.${(a.qb||[]).length?` <b>The original was exported to QuickBooks as ${a.qb.map(x=>esc(x.no)).join(", ")}: reverse or delete it in QuickBooks before importing the corrected journal.</b>`:""}`}
 }
 function yearRows(r){
   return state.crew.map((c,i)=>{
@@ -1171,7 +1171,7 @@ function seasonData(){
 }
 function applySeason(d){
   if(!d||!d.state||!Array.isArray(d.state.crew))throw 0;
-  ["tickets","exp","gear","crew","archive"].forEach(k=>state[k]=Array.isArray(d.state[k])?d.state[k]:[]);
+  ["tickets","exp","gear","crew","archive","qbLog"].forEach(k=>state[k]=Array.isArray(d.state[k])?d.state[k]:[]);
   state.correcting=d.state.correcting||"";state.corrReason=d.state.corrReason||"";
   state.crew.forEach(c=>{c.deds=c.deds||[];c.prior=c.prior||[];if(!c.cid)c.cid=newCid();if(typeof c.name==="string")c.name=c.name.replace(/\s+/g," ").trim()});
   Object.entries(d.fields||{}).forEach(([id,v])=>{const el=$(id);if(el)el.value=id==="date"?(toISO(v)||""):v});
@@ -1208,6 +1208,7 @@ function closeTrip(){
   const prev=state.correcting?(state.archive||[]).find(x=>x.id===state.correcting):null;
   const aid=Date.now().toString(36);
   if(prev){prev.superseded=true;prev.supersededBy=aid}
+  const qbX=(state.qbLog||[]).filter(x=>!x.aid);qbX.forEach(x=>x.aid=aid);
   state.archive=[...(state.archive||[]),{
     id:aid,version:prev?(prev.version||1)+1:1,correctionOf:prev?prev.id:"",reason:prev?state.corrReason||"":"",closedAt:new Date().toISOString(),closedBy:(typeof cs!=="undefined"&&cs.user&&cs.user.email)||"",
     label,vessel:$("vessel").value,trip:$("trip").value,port:$("port").value,date:$("date").value,tripDays:$("tripDays").value,
@@ -1216,6 +1217,7 @@ function closeTrip(){
     tickets:JSON.parse(JSON.stringify(state.tickets.map(t=>({...t,photos:[]})))),exp:JSON.parse(JSON.stringify(state.exp.map(e=>({...e,photos:[]})))),gear:JSON.parse(JSON.stringify(state.gear)),
     crew:act.map(([c,i])=>({cid:c.cid,name:c.name,role:c.role,share:num(c.share),days:daysTxt(c),deds:JSON.parse(JSON.stringify(c.deds)),each:r.people[i].each||[],shareC:r.people[i].share,ded:r.people[i].ded,pay:r.people[i].pay})),
     ifq:ifqStatements(state.tickets,{vessel:$("vessel").value,trip:label}),
+    qb:qbX.map(x=>({no:x.no,at:x.at,total:x.total})),
     slips:act.map(([c,i])=>slipText(i,r))
   }];
   state.crew.forEach((c,i)=>{
@@ -1321,7 +1323,10 @@ document.addEventListener("click",e=>{
   else if(t.id==="addCrew"){state.crew.push({cid:newCid(),name:"",role:"Deckhand",share:1,deds:[],tin:null,tinStatus:"missing",prior:[]});focusSel=`#m-name-${state.crew.length-1}`}
   else if(t.dataset.w9!==undefined){const c=state.crew[+t.dataset.w9];c.tinStatus="ok";renderResults();return}
   else if(t.id==="exCsv"){download(`CrewSettle-${slug(curTrip())}${corrTag()}-settlement.csv`,settlementCSV(),"text/csv").then(ok=>{if(ok)exStatus("Settlement CSV saved. It opens in Excel or Google Sheets.")});return}
-  else if(t.id==="exQbo"){const q=qboCSV();if(!q.balanced){exStatus("The journal does not balance. Check the numbers before exporting.");return}download(`CrewSettle-${slug(curTrip())}${corrTag()}-quickbooks-journal-DRAFT.csv`,q.csv,"text/csv").then(ok=>{if(ok)exStatus(`QuickBooks journal saved (draft). Debits ${fmtC(q.d)} = credits ${fmtC(q.k)}. Import into a test file first.`+(q.neg?" Note: someone's deductions are larger than the share. Only the part covered by the share is in this journal; the rest is still owed to the vessel.":""))});return}
+  else if(t.id==="exQbo"){const q=qboCSV();if(!q.balanced){exStatus("The journal does not balance. Check the numbers before exporting.");return}
+    const no=$("qbNo").value||"CS-1",prevX=(state.qbLog||[]).filter(x=>x.no===no);
+    if(prevX.length&&!confirm(`Journal ${no} was already downloaded ${prevX.map(x=>new Date(x.at).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})).join(", ")}.\n\nQuickBooks does NOT stop the same journal being imported twice. If you import it again, the crew pay is entered twice.\n\nOnly download again if the first file was never imported, or you have deleted it in QuickBooks. Download anyway?`))return;
+    download(`CrewSettle-${slug(curTrip())}${corrTag()}-quickbooks-journal-DRAFT.csv`,q.csv,"text/csv").then(ok=>{if(ok){state.qbLog=[...(state.qbLog||[]),{no,trip:curTrip(),at:new Date().toISOString(),total:q.d,aid:""}];renderResults();exStatus(`QuickBooks journal ${no} saved (draft). Debits ${fmtC(q.d)} = credits ${fmtC(q.k)}. Import it into QuickBooks once only: QuickBooks does not stop the same journal being imported twice. Import into a test file first.`+(q.neg?" Note: someone's deductions are larger than the share. Only the part covered by the share is in this journal; the rest is still owed to the vessel.":""))}});return}
   else if(t.id==="exSave"){saveSeason();return}
   else if(t.id==="exClose"){closeTrip();return}
   else if(t.id==="ye1"){copyReport();return}
@@ -1329,7 +1334,8 @@ document.addEventListener("click",e=>{
   else if(t.dataset.correct!==undefined){
     const a=(state.archive||[]).find(x=>x.id===t.dataset.correct);if(!a||a.superseded||state.correcting)return;
     if(state.tickets.length||state.exp.length||state.gear.length){exStatus("Finish and close the trip you are working on first, or remove its tickets and expenses, before correcting an earlier trip.",1);return}
-    const reason=prompt(`Correct \u201c${a.label}\u201d?\n\nThe original stays under Closed trips, marked Superseded. Its shares are taken out of the year-to-date totals until you close the corrected version.\n\nWhat needs correcting?`,"");
+    const qbNote=(a.qb||[]).length?`\n\nIMPORTANT: this trip was exported to QuickBooks as journal ${a.qb.map(x=>x.no).join(", ")}. Before you import the corrected journal, reverse or delete ${a.qb.length>1?"those journals":"that journal"} in QuickBooks, or the crew pay will be entered twice.`:"";
+    const reason=prompt(`Correct \u201c${a.label}\u201d?\n\nThe original stays under Closed trips, marked Superseded. Its shares are taken out of the year-to-date totals until you close the corrected version.${qbNote}\n\nWhat needs correcting?`,"");
     if(reason===null)return;
     state.correcting=a.id;state.corrReason=reason.trim();
     state.tickets=JSON.parse(JSON.stringify(a.tickets));state.exp=JSON.parse(JSON.stringify(a.exp));state.gear=JSON.parse(JSON.stringify(a.gear));
@@ -1538,7 +1544,7 @@ function gMsg(t,kind){const m=g("gMsg");m.textContent=t||"";m.className="msg"+(k
 function gStep(s){["Loading","Email","Code","Boat"].forEach(k=>g("gStep"+k).hidden=k!==s)}
 function cloudState(t,kind){const e=g("cloudState");e.textContent=t;e.className=kind||""}
 function blankSeason(name){
-  state.tickets=[];state.exp=[];state.gear=[];state.crew=[];state.archive=[];state.correcting="";state.corrReason="";$("poolDiv").value="";$("poolFixed").value="";syncPoolUI();
+  state.tickets=[];state.exp=[];state.gear=[];state.crew=[];state.archive=[];state.qbLog=[];state.correcting="";state.corrReason="";$("poolDiv").value="";$("poolFixed").value="";syncPoolUI();
   ["trip","port","date"].forEach(id=>{const el=$(id);if(el)el.value=""});
   $("vessel").value=name||"";
   ui.expOpen.clear();ui.tOpen.clear();ye.sent=null;
