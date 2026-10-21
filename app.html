@@ -483,7 +483,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
     
   </section>
 
-  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.<br><span class="build">CrewSettle Pilot · build 2026-10-21.4</span></footer>
+  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.<br><span class="build">CrewSettle Pilot · build 2026-10-21.5</span></footer>
 </div>
 <nav class="tabbar" aria-label="Sections"><div class="tabbar-in"><button class="tab" data-tab="tickets" id="tab-tickets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg><span>Fish tickets</span><b class="tabsum" id="tabsum-tickets"></b></button><button class="tab" data-tab="expenses" id="tab-expenses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span>Expenses</span><b class="tabsum" id="tabsum-expenses"></b></button><button class="tab" data-tab="crew" id="tab-crew"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.9.4 5 2.8 5 5.8"/></svg><span>Crew</span><b class="tabsum" id="tabsum-crew"></b></button><button class="tab" data-tab="settlement" id="tab-settlement"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7h14"/><path d="M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/></svg><span>Settlement</span><b class="tabsum" id="tabsum-settlement"></b></button><button class="tab" data-tab="yearend" id="tab-yearend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Year end</span><b class="tabsum" id="tabsum-yearend"></b></button></div></nav>
 <div class="lightbox" id="lightbox" hidden><div><img id="lbImg" alt="Scanned document"><button id="lbClose">Close</button></div></div>
@@ -883,7 +883,7 @@ function renderResults(){
     :`<div class="wf total"><span class="op">=</span><span>Crew pool (${pctTxt(r.pct)} %)</span><span class="sum">${fmtC(r.pool)}</span></div>`}
     <div class="wf"><span class="op">\u00f7</span><span>${r.fixed?"Fixed number of shares":"Total crew shares"}${r.fixed?`<small>${shTxt(r.totalShares)} used this trip</small>`:""}</span><span class="sum">${shTxt(r.divShares)}</span></div>
     <div class="wf hl"><span class="op">=</span><span>Value per share<small>Unrounded $${r.perShareExact.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:7})}</small></span><span class="sum">${fmtC(perShareC)}</span></div>
-    ${r.unused?`<div class="wf"><span class="op"></span><span>Unused shares to vessel/owner</span><span class="sum">${fmtC(r.unused)}</span></div>`:""}
+    ${r.unused?`<div class="wf"><span class="op"></span><span>Unused shares to vessel/owner<small>Vessel/owner total: ${fmtC(r.vessel)} + ${fmtC(r.unused)} = ${fmtC(r.vessel+r.unused)}</small></span><span class="sum">${fmtC(r.unused)}</span></div>`:""}
     ${r.pool<=0?`<p class="warn" style="margin-top:8px">The crew pool is zero or less, so there is nothing to pay out in shares. Check the expenses and how they are charged.</p>`:""}`;
   $("perShare").textContent=`1 share = ${fmtC(perShareC)}`;
   const tpS=tripProblems(),tpTxt=[...tpS.P,...tpS.W].map(m=>`<p class="warn">${esc(m)}</p>`).join("");
@@ -917,7 +917,7 @@ function renderResults(){
     <div class="rc"><span>Expenses charged to crew</span><span class="sum neg">${fmtC(-r.crewOnly)}</span></div>
     <div class="rc total"><span>Gross crew pool</span><span class="sum">${fmtC(r.pool)}</span></div>
     <div class="rc"><span>Total personal deductions${r.eachTotal?`<small class="hint" style="display:block">Includes ${fmtC(r.eachTotal)} of expenses split equally per person</small>`:""}</span><span class="sum neg">${fmtC(-r.totalDed)}</span></div>
-    ${r.unused?`<div class="rc"><span>Unused shares to vessel/owner</span><span class="sum">${fmtC(r.unused)}</span></div>`:""}
+    ${r.unused?`<div class="rc"><span>Unused shares to vessel/owner</span><span class="sum">${fmtC(r.unused)}</span></div><div class="rc total"><span>Vessel/owner total (net + unused shares)</span><span class="sum">${fmtC(r.vessel+r.unused)}</span></div>`:""}
     <div class="rc total"><span>Net pay to crew</span><span class="sum">${fmtC(r.netPaid)}</span></div>
     <div class="rc"><span>Rounding cents allocated<small class="hint" style="display:block">${r.leftover} ${r.leftover===1?"cent":"cents"} placed by the rule below</small></span><span class="sum">${fmtC(r.leftover)}</span></div>
     <div class="rc"><span>Rounding difference remaining</span><span class="sum">${fmtC(r.diff)}</span></div>
@@ -1095,6 +1095,7 @@ function settlementCSV(){
   add("Total","Settlement basis","",r.basis);
   add("Total",`Crew pool (${pctTxt(r.pct)} %)`,"",r.pool);
   add("Total","Vessel/owner share","",r.vessel);
+  if(r.unused){add("Total","Unused shares to vessel/owner","",r.unused);add("Total","Vessel/owner total (share + unused shares)","",r.vessel+r.unused)}
   state.crew.forEach((c,i)=>{
     if(c.off)return;
     const p=r.people[i],who=c.name||"Unnamed";
@@ -1122,6 +1123,7 @@ function archiveCSV(a){
   add("Total",a.fixed?`Pool divided by a fixed ${shTxt(a.divShares)} shares`:`Pool divided by ${shTxt(a.divShares)} shares on board`,"",null);
   if(a.unused)add("Total","Unused shares to vessel/owner","",a.unused);
   add("Total","Vessel/owner share","",a.vesselNet);
+  if(a.unused)add("Total","Vessel/owner total (share + unused shares)","",a.vesselNet+a.unused);
   a.crew.forEach(c=>{const who=c.name||"Unnamed";
     add("Crew share",`${c.role} · ${shTxt(c.share)} shares${c.days||""}`,who,c.shareC);
     (c.deds||[]).forEach(d=>add("Deduction",d.type,who,-cents(d.amt)));
@@ -1289,6 +1291,7 @@ document.addEventListener("input",e=>{
   else if(t.dataset.ded!==undefined){state.crew[+t.dataset.ded].deds[+t.dataset.j][t.dataset.f]=t.value}
   else if(!["crewPct","avgCrew","date","trip","tripDays","poolDiv","poolFixed"].includes(t.id)) return;
   if(t.id==="poolDiv")syncPoolUI();
+  if(t.id==="tripDays"){renderLines()}
   renderResults();
 });
 document.addEventListener("change",e=>{
@@ -1361,6 +1364,7 @@ document.addEventListener("click",e=>{
   else if(t.dataset.purge!==undefined){const c=state.crew[+t.dataset.purge];if(hasHistory(c))return;if(!confirm(`Delete ${c.name||"this crew member"}? They are not in any closed trip, so nothing else is lost.`))return;state.crew.splice(+t.dataset.purge,1);ui.offOpen=true}
   else if(t.id==="addCrew"){state.crew.push({cid:newCid(),name:"",role:"Deckhand",share:1,deds:[],tin:null,tinStatus:"missing",prior:[]});focusSel=`#m-name-${state.crew.length-1}`}
   else if(t.dataset.w9!==undefined){const c=state.crew[+t.dataset.w9];c.tinStatus="ok";renderResults();return}
+  else if((t.id==="exCsv"||t.id==="exQbo")&&tripProblems().P.length){exStatus(`Cannot export yet. ${tripProblems().P.join(" ")}`,1);return}
   else if(t.id==="exCsv"){download(`CrewSettle-${slug(curTrip())}${corrTag()}-settlement.csv`,settlementCSV(),"text/csv").then(ok=>{if(ok)exStatus("Settlement CSV saved. It opens in Excel or Google Sheets.")});return}
   else if(t.id==="exQbo"){const q=qboCSV();if(!q.balanced){exStatus("The journal does not balance. Check the numbers before exporting.");return}
     const no=$("qbNo").value||"CS-1",prevX=(state.qbLog||[]).filter(x=>x.no===no);
