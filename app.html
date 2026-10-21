@@ -483,7 +483,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
     
   </section>
 
-  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.<br><span class="build">CrewSettle Pilot · build 2026-10-21.2</span></footer>
+  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.<br><span class="build">CrewSettle Pilot · build 2026-10-21.4</span></footer>
 </div>
 <nav class="tabbar" aria-label="Sections"><div class="tabbar-in"><button class="tab" data-tab="tickets" id="tab-tickets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg><span>Fish tickets</span><b class="tabsum" id="tabsum-tickets"></b></button><button class="tab" data-tab="expenses" id="tab-expenses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span>Expenses</span><b class="tabsum" id="tabsum-expenses"></b></button><button class="tab" data-tab="crew" id="tab-crew"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.9.4 5 2.8 5 5.8"/></svg><span>Crew</span><b class="tabsum" id="tabsum-crew"></b></button><button class="tab" data-tab="settlement" id="tab-settlement"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7h14"/><path d="M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/></svg><span>Settlement</span><b class="tabsum" id="tabsum-settlement"></b></button><button class="tab" data-tab="yearend" id="tab-yearend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Year end</span><b class="tabsum" id="tabsum-yearend"></b></button></div></nav>
 <div class="lightbox" id="lightbox" hidden><div><img id="lbImg" alt="Scanned document"><button id="lbClose">Close</button></div></div>
@@ -886,7 +886,8 @@ function renderResults(){
     ${r.unused?`<div class="wf"><span class="op"></span><span>Unused shares to vessel/owner</span><span class="sum">${fmtC(r.unused)}</span></div>`:""}
     ${r.pool<=0?`<p class="warn" style="margin-top:8px">The crew pool is zero or less, so there is nothing to pay out in shares. Check the expenses and how they are charged.</p>`:""}`;
   $("perShare").textContent=`1 share = ${fmtC(perShareC)}`;
-  $("slips").innerHTML=r.gross<=0?`<p class="hint">Pay slips appear here when the first fish ticket is in.</p>`:state.crew.map((c,i)=>{
+  const tpS=tripProblems(),tpTxt=[...tpS.P,...tpS.W].map(m=>`<p class="warn">${esc(m)}</p>`).join("");
+  $("slips").innerHTML=r.gross<=0?tpTxt+`<p class="hint">Pay slips appear here when the first fish ticket is in.</p>`:tpTxt+state.crew.map((c,i)=>{
     if(c.off)return "";
     const p=r.people[i];
     return `<div class="slip">
@@ -923,6 +924,7 @@ function renderResults(){
     <p class="check${ok?"":" bad"}" style="padding-top:8px"><b>${ok?"\u2713":"\u2715"}</b><span>${ok?`Balances. Vessel/owner net + crew pool + all expenses = gross catch value, and crew shares${r.unused?" + unused shares":""} \u2212 deductions = net paid${r.unused?" + unused shares":""}.`:"Does not balance. Check the inputs."}</span></p>
     ${findTicketDups().length?`<p class="check bad"><b>!</b><span>${findTicketDups().length} possible duplicate fish ${findTicketDups().length===1?"ticket":"tickets"}. Check under Fish tickets before paying out.</span></p>`:""}
     ${findDups().length?`<p class="check bad"><b>!</b><span>${findDups().length} possible duplicate ${findDups().length===1?"expense":"expenses"} under Expenses. Check before paying out.</span></p>`:""}
+    ${(()=>{const tp=tripProblems();return [...tp.P,...tp.W].map(m=>`<p class="check bad"><b>!</b><span>${esc(m)}</span></p>`).join("")})()}
     ${unchecked?`<p class="check bad"><b>!</b><span>${unchecked} scanned ${unchecked===1?"document has":"documents have"} not been checked against the photo yet. Check before paying out.</span></p>`:""}`;
   renderYE(r);
   renderArchive();
@@ -1197,8 +1199,39 @@ function openSeason(file){
   };
   fr.readAsText(file);
 }
+function tripProblems(){
+  const P=[],W=[],raw=v=>String(v??"").trim();
+  const pctRaw=raw($("crewPct").value),pct=num(pctRaw);
+  if(pctRaw===""||!isFinite(pct))P.push("Crew share (%) is empty. Type the crew's percentage, for example 48.");
+  else if(pct<0||pct>100)P.push(`Crew share (%) is ${pctRaw}. It must be between 0 and 100.`);
+  state.tickets.forEach(t=>t.lines.forEach(l=>{if(num(l.lbs)<0||num(l.price)<0)P.push(`${tName(t)}: ${l.name||"a line"} has a negative weight or price.`)}));
+  state.exp.forEach(e=>{if(num(e.amt)<0)P.push(`Expense "${e.name||"unnamed"}" is negative.`);
+    if(e.to==="custom"){const c=num(e.crewPct);if(c<0||c>100)P.push(`Expense "${e.name||"unnamed"}": crew pays ${raw(e.crewPct)} %. It must be between 0 and 100.`)}});
+  state.gear.forEach(g=>{if(num(g.qty)<0||num(g.cost)<0)P.push(`Lost gear "${g.item||"unnamed"}" has a negative quantity or cost.`);
+    if(g.to==="custom"){const c=num(g.crewPct);if(c<0||c>100)P.push(`Lost gear "${g.item||"unnamed"}": crew pays ${raw(g.crewPct)} %. It must be between 0 and 100.`)}});
+  state.tickets.forEach(t=>(t.ifq||[]).forEach(q=>{const p=num(q.pct),nm=`${tName(t)}: IFQ lease ${raw(q.holder)||""}`.trim();
+    if(raw(q.pct)===""||p<=0||p>100)P.push(`${nm}: lease % is ${raw(q.pct)||"empty"}. It must be more than 0 and at most 100.`);
+    const sel=q.sp?t.lines.filter(l=>l.name===q.sp):t.lines,base=sel.reduce((s,l)=>s+lineC(l),0),all=t.lines.reduce((s,l)=>s+lineC(l),0);
+    if(num(q.tax)<0)P.push(`${nm}: fish taxes are negative.`);else if(cents(q.tax)>all)P.push(`${nm}: fish taxes are larger than the ticket value.`)}));
+  const T=num($("tripDays").value);
+  state.crew.forEach(c=>{if(c.off)return;const nm=c.name||"Unnamed";
+    if(num(c.share)<0)P.push(`${nm}: shares are negative.`);
+    (c.deds||[]).forEach(d=>{if(num(d.amt)<0)P.push(`${nm}: the ${String(d.type||"deduction").toLowerCase()} is negative.`)});
+    const dv=raw(c.days);if(dv!==""){const d=num(dv);if(d<0)P.push(`${nm}: days on board is negative.`);else if(T>0&&d>T)P.push(`${nm}: ${dv} days on board, but the trip was ${T} days at sea.`)}});
+  const on=state.crew.filter(c=>!c.off);
+  if(on.length&&on.every(c=>num(c.share)<=0))P.push("Nobody on board has any shares.");
+  if($("poolDiv").value==="fixed"){const fr=raw($("poolFixed").value),fx=num(fr),onSh=Math.round(state.crew.filter(c=>!c.off).reduce((s,c)=>s+Math.max(0,effShare(c)),0)*1000)/1000;
+    if(fr===""||fx<=0)P.push("A fixed number of shares is chosen, but the number is empty. Type the number of shares the pool is divided by, for example 10.");
+    else if(fx<onSh)P.push(`The fixed number of shares is ${fr}, but the crew on board have ${shTxt(onSh)} shares. It must be at least ${shTxt(onSh)}, or choose "The shares on board this trip".`)}
+  const r=run();
+  if(!P.length&&r.basis<0)W.push(`Expenses are larger than the catch value (settlement basis ${fmtC(r.basis)}). The crew gets nothing and the vessel/owner carries the loss.`);
+  else if(!P.length&&r.pool<0)W.push(`Expenses charged to the crew are larger than the crew share (crew pool ${fmtC(r.pool)}). The crew gets nothing from this trip.`);
+  return{P,W};
+}
 function closeTrip(){
   const r=run(),label=curTrip();
+  const tp=tripProblems();
+  if(tp.P.length){exStatus(`Cannot close yet. ${tp.P.join(" ")}`,1);return}
   if(r.gross<=0){exStatus("Cannot close yet. Add at least one fish ticket with a value greater than $0.",1);return}
   if(!state.crew.some(c=>!c.off)){exStatus("Add the crew before closing the trip.",1);return}
   const unT=state.tickets.filter(o=>o.status==="scanned").map(t=>"Fish ticket "+(t.no?"#"+t.no:"")+(t.label?" ("+t.label+")":"")),
@@ -1208,7 +1241,7 @@ function closeTrip(){
   const np=[];state.tickets.forEach(t=>t.lines.forEach(l=>{if(num(l.lbs)>0&&num(l.price)<=0)np.push(`${l.name||"Unnamed line"} on ticket ${t.no?"#"+t.no:t.label||""}`.trim())}));
   if(np.length){exStatus(`Cannot close yet. No price: ${np.join("; ")}. Fill in the price per lb from the buyer's settlement.`,1);return}
   const owes=state.crew.map((c,i)=>[c,r.people[i]]).filter(([c,p])=>!c.off&&p.pay<0).map(([c,p])=>`${c.name||"Unnamed"} owes the vessel ${fmtC(-p.pay)}`);
-  if(!confirm(`Close “${label}”? The settlement is saved under Closed trips and can no longer be changed. Each crew member's share is added to the year-to-date totals, and the fish tickets, expenses, lost gear and personal deductions are cleared for the next trip.`+(owes.length?`\n\nNote: deductions are larger than the share for:\n${owes.join("\n")}\nThis shows as a negative pay on the slip. Add it as an advance on the next trip if it is to be carried over.`:"")))return;
+  if(!confirm(`Close “${label}”? The settlement is saved under Closed trips and can no longer be changed. Each crew member's share is added to the year-to-date totals, and the fish tickets, expenses, lost gear and personal deductions are cleared for the next trip.`+(tp.W.length?`\n\nWarning: ${tp.W.join(" ")}`:"")+(owes.length?`\n\nNote: deductions are larger than the share for:\n${owes.join("\n")}\nThis shows as a negative pay on the slip. Add it as an advance on the next trip if it is to be carried over.`:"")))return;
   state.crew.forEach(c=>{if(!c.cid)c.cid=newCid();if(typeof c.name==="string")c.name=c.name.replace(/\s+/g," ").trim()});
   const act=state.crew.map((c,i)=>[c,i]).filter(([c])=>!c.off);
   const prev=state.correcting?(state.archive||[]).find(x=>x.id===state.correcting):null;
