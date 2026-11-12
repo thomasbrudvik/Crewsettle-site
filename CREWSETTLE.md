@@ -59,7 +59,7 @@ All money is calculated in whole cents. The core is the function `settle()` in `
   - `index.html` – the public website.
   - `app.html` – the whole app, one file (HTML, CSS and JavaScript). A build label at the bottom shows which version a user has (for example `build 2026-10-19.2`).
   - `data-terms.html` – data terms and privacy.
-- **Supabase** (EU, Frankfurt): sign-in by one-time email code, the database, and the scan function.
+- **Supabase** (EU, Paris; project moved 2026-11-12): sign-in by one-time email code, the database, and the scan function.
   - Tables: `boats`, `boat_members`, `seasons` (one JSON document per boat with the whole season: current trip, crew, closed-trip archive).
   - Row Level Security is on for every table. A user only sees boats they are a member of (`is_boat_member`). Nothing is open to signed-out visitors. There is no delete access from the app.
   - Setup: `supabase-schema.sql`. Live check: `supabase-check.sql`.
