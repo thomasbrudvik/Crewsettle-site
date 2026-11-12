@@ -15,7 +15,7 @@ Rules: one entry in "lines" per species/grade line that was sold. "species" is t
 const RECEIPT = `The image(s) show one receipt or invoice for a commercial fishing trip. Several images are pages of the same document.
 Read it and reply with only this JSON:
 {"vendor": string or null, "date": string or null, "total": number or null,
- "lines": [{"category": one of "Fuel","Bait","Ice","Groceries","Lube oil","Observer fee","Landing fees","Gear & supplies","Repairs","Other",
+ "lines": [{"category": one of "Fuel","Bait","Ice","Groceries","Lube oil","Observer fee","Fish taxes & assessments","Landing fees","Gear & supplies","Repairs","Other",
    "description": short plain description, e.g. "Diesel #2",
    "quantity": number or null, "unit": string or null, "unit_price": number or null, "amount": number}],
  "readable": true or false, "note": string or null}
@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
   // Only signed-in CrewSettle users may scan.
   const auth = req.headers.get("Authorization") ?? "";
   const who = await fetch(`${Deno.env.get("SUPABASE_URL")}/auth/v1/user`, {
-    headers: { Authorization: auth, apikey: Deno.env.get("SUPABASE_ANON_KEY") ?? "" },
+    headers: { Authorization: auth, apikey: req.headers.get("apikey") || Deno.env.get("SUPABASE_ANON_KEY") || "" },
   });
   if (!who.ok) return json(401, { error: "session_expired" });
 
