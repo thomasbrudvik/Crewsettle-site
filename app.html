@@ -282,6 +282,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
 .cloudbar{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:.85rem;color:var(--muted);margin:.2rem 0 .6rem}
 .cloudbar b{color:var(--ink);font-family:var(--display);font-size:1.15rem;font-weight:700}
 .cloudbar button{font:inherit;font-size:.85rem;background:none;border:1px solid var(--line);border-radius:8px;padding:4px 10px;color:var(--ink);cursor:pointer}
+.conflict{border:2px solid var(--neg);border-radius:8px;padding:10px 12px;margin:8px 0;background:var(--panel);display:grid;gap:8px}
 #cloudState.ok{color:var(--ok)}#cloudState.err{color:var(--neg)}
 .ifq-item{border-top:1px dashed var(--line);margin-top:10px;padding-top:8px}.ifq-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.ifq-grid .cell{display:flex;flex-direction:column;gap:4px}.ifq-grid input,.ifq-grid select{width:100%;box-sizing:border-box}
 </style>
@@ -316,6 +317,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
   <header>
     <span class="tag">Pilot</span>
     <div class="cloudbar" id="cloudbar" hidden><b id="cbBoat"></b><span id="cloudState"></span><span id="cbUser"></span><button id="cbOut" type="button">Sign out</button></div>
+    <div class="conflict" id="conflictBar" role="alert" hidden><b>This season was changed on another phone, tablet or browser tab.</b> To avoid overwriting that work, nothing more is saved here. <button type="button" class="step primary" onclick="location.reload()">Reload to get the latest version</button> Changes you made here since the last save must be typed in again.</div>
     <h1>Crew Share Settlement</h1>
     <p>Use the tabs at the bottom: add fish tickets, expenses and crew, then see the settlement and pay slips. Everything updates as you go.</p>
   </header>
@@ -483,7 +485,7 @@ footer{color:var(--muted);font-size:.8rem;text-align:center}
     
   </section>
 
-  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.<br><span class="build">CrewSettle Pilot · build 2026-11-12.1</span></footer>
+  <footer>Pilot version. Your numbers are saved to your CrewSettle account as you work. Photos are not stored. Not payroll, tax or legal advice.<br><span class="build">CrewSettle Pilot · build 2026-11-13.1</span></footer>
 </div>
 <nav class="tabbar" aria-label="Sections"><div class="tabbar-in"><button class="tab" data-tab="tickets" id="tab-tickets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg><span>Fish tickets</span><b class="tabsum" id="tabsum-tickets"></b></button><button class="tab" data-tab="expenses" id="tab-expenses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg><span>Expenses</span><b class="tabsum" id="tabsum-expenses"></b></button><button class="tab" data-tab="crew" id="tab-crew"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.9.4 5 2.8 5 5.8"/></svg><span>Crew</span><b class="tabsum" id="tabsum-crew"></b></button><button class="tab" data-tab="settlement" id="tab-settlement"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7h14"/><path d="M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/></svg><span>Settlement</span><b class="tabsum" id="tabsum-settlement"></b></button><button class="tab" data-tab="yearend" id="tab-yearend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Year end</span><b class="tabsum" id="tabsum-yearend"></b></button></div></nav>
 <div class="lightbox" id="lightbox" hidden><div><img id="lbImg" alt="Scanned document"><button id="lbClose">Close</button></div></div>
@@ -623,11 +625,15 @@ const run=()=>settle(allLines(),[...state.exp,...gearAsExp(),...ifqAsExp()],stat
 const lineC=c=>Math.round(num(c.lbs)*num(c.price)*100);
 const BADGE={example:["Example",""],manual:["Typed in",""],scanned:["Scanned \u00b7 check against photo","check"],checked:["Checked against photo","ok"]};
 const thumbs=ph=>ph.length?`<span class="thumbs">${ph.map((u,k)=>`<button class="thumb" data-photo="${u}" aria-label="View photo ${k+1}"><img src="${u}" alt=""></button>`).join("")}</span>`:"";
+const spOpts=(t,q)=>`<option value="">All species</option>`+[...new Set([...t.lines.map(l=>l.name).filter(Boolean),...(q.sp?[q.sp]:[])])].map(n=>`<option${n===q.sp?" selected":""}>${esc(n)}</option>`).join("");
+function refreshSp(ti){const tk=state.tickets[ti];(tk.ifq||[]).forEach((q,j)=>{const el=$(`q-sp-${ti}-${j}`);if(el)el.innerHTML=spOpts(tk,q)})}
+// A scanned ticket or receipt that was marked "checked" must be checked again if its numbers are changed.
+function uncheck(o,kind,idx){if(o&&o.status==="checked"){o.status="scanned";const m=$(`meta-${kind}-${idx}`);if(m)m.outerHTML=metaFor(o,kind,idx)}}
 const metaFor=(o,kind,idx)=>{
   let [txt,cls]=BADGE[o.status]||BADGE.manual;const ph=(o.photos||[]).length;
   if(!ph&&o.status==="scanned")txt="Scanned \u00b7 check against the paper copy";
   if(!ph&&o.status==="checked")txt="Checked";
-  return `<div class="meta"><span class="badge ${cls}">${txt}</span>${thumbs(o.photos||[])}${o.status==="scanned"?`<button class="confirm" data-confirm="${kind}" data-i="${idx}">${ph?"Numbers match photo":"Numbers checked"}</button>`:""}</div>`;
+  return `<div class="meta" id="meta-${kind}-${idx}"><span class="badge ${cls}">${txt}</span>${thumbs(o.photos||[])}${o.status==="scanned"?`<button class="confirm" data-confirm="${kind}" data-i="${idx}">${ph?"Numbers match photo":"Numbers checked"}</button>`:""}</div>`;
 };
 
 const ROLES=["Captain","Chief mate","Mate","Engineer","Cook","Deckhand","Greenhorn"];
@@ -675,7 +681,7 @@ function renderLines(){
           ${cell("Area (optional)",`<input id="q-area-${ti}-${j}" data-k="ifq" data-t="${ti}" data-j="${j}" data-f="area" value="${esc(q.area||"")}" placeholder="e.g. WG">`)}
           ${cell("Lease %",`<input id="q-pct-${ti}-${j}" class="num" inputmode="decimal" data-k="ifq" data-t="${ti}" data-j="${j}" data-f="pct" value="${esc(String(q.pct??""))}" placeholder="e.g. 35">`)}
           ${cell("Fish taxes, whole ticket ($)",`<input id="q-tax-${ti}-${j}" class="num" inputmode="decimal" data-k="ifq" data-t="${ti}" data-j="${j}" data-f="tax" value="${esc(String(q.tax??""))}" placeholder="0">`)}
-          ${cell("Species",`<select id="q-sp-${ti}-${j}" data-k="ifq" data-t="${ti}" data-j="${j}" data-f="sp"><option value="">All species</option>${[...new Set(t.lines.map(l=>l.name).filter(Boolean))].map(n=>`<option${n===q.sp?" selected":""}>${esc(n)}</option>`).join("")}</select>`)}
+          ${cell("Species",`<select id="q-sp-${ti}-${j}" data-k="ifq" data-t="${ti}" data-j="${j}" data-f="sp">${spOpts(t,q)}</select>`)}
           ${cell("Charged to",`<select id="q-to-${ti}-${j}" data-k="ifq" data-t="${ti}" data-j="${j}" data-f="to">${[["shared","Before split"],["vessel","Vessel/owner only"],["crew","Crew only"]].map(([v,x])=>`<option value="${v}"${v===(q.to||"shared")?" selected":""}>${x}</option>`).join("")}</select>`)}
         </div>
         <p class="hint small">Lease fee <span id="q-amt-${ti}-${j}"></span> <button class="add small" data-delifq="${ti}" data-j="${j}">Remove</button></p>
@@ -799,7 +805,7 @@ function slipText(i,r){
   return [
     ...(corr?[`CORRECTED SETTLEMENT \u2013 VERSION ${(corr.version||1)+1}`,``]:[]),
     `${$("vessel").value} \u00b7 ${$("trip").value}`,
-    `Landed ${dateTxt($("date").value)}, ${$("port").value}`,
+    `Landed ${dateTxt($("date").value)}${$("port").value.trim()?", "+$("port").value.trim():""}`,
     ``,
     `${c.name} (${c.role})`,
     L(`Gross catch value (${state.tickets.length} fish ticket${state.tickets.length===1?"":"s"}):`,fmtC(r.gross)),
@@ -811,7 +817,7 @@ function slipText(i,r){
     L(r.fixed?"Crew pool divided by (fixed):":"Total crew shares:",shTxt(r.divShares)),
     L("Value per share:",fmtC(Math.round(r.perShareExact*100))),
     L(`Your share (${shTxt(num(c.share))}${daysTxt(c)}):`,fmtC(p.share)),
-    ...c.deds.map(d=>L(`Less ${d.type.toLowerCase()}:`,"\u2212"+fmtC(cents(d.amt)))),
+    ...c.deds.map(d=>L(d.carry?`Less owed from ${d.carry}:`:`Less ${d.type.toLowerCase()}:`,"\u2212"+fmtC(cents(d.amt)))),
     ...(p.each||[]).map(x=>L(`Less ${x.name.toLowerCase()} (split equally):`,"\u2212"+fmtC(x.amt))),
     L("PAY:",fmtC(p.pay)),
     ...(p.pay<0?[L("Owes the vessel:",fmtC(-p.pay))]:[]),
@@ -950,11 +956,13 @@ function renderArchive(){
     ${!a.superseded&&!state.correcting?`<button class="step" data-correct="${a.id}">Create correction</button>`:""}</details>`).join(""):`<p class="hint">No closed trips yet.</p>`;
   const bn=$("corrBanner");if(bn){const a=A.find(x=>x.id===state.correcting);bn.hidden=!a;if(a)bn.innerHTML=`<strong>Correcting \u201c${esc(a.label)}\u201d, version ${(a.version||1)+1}.</strong> Fix what was wrong, check the numbers, and close the trip again. The original stays under Closed trips, marked Superseded.${(a.qb||[]).length?` <b>The QuickBooks journal for the original (${a.qb.map(x=>esc(x.no)).join(", ")}) was downloaded. If it was imported into QuickBooks, reverse or delete it there before importing the corrected journal.</b>`:""}`}
 }
+// A carried amount was already counted on the trip where it arose, so the year totals leave it out.
+function dedSplit(c){let adv=0,carry=0;(c.deds||[]).forEach(d=>{if(d.carry)carry+=cents(d.amt);else if(d.type==="Advance")adv+=cents(d.amt)});return{adv,carry}}
 function yearRows(r){
   return state.crew.map((c,i)=>{
     const p=r.people[i];
-    const adv=c.deds.filter(d=>d.type==="Advance").reduce((s,d)=>s+cents(d.amt),0);
-    const trips=[...(c.prior||[]),...(c.off?[]:[{trip:thisTripLabel(),box5:p.share,ded:p.ded-adv,adv,current:true}])];
+    const {adv,carry}=dedSplit(c);
+    const trips=[...(c.prior||[]),...(c.off?[]:[{trip:thisTripLabel(),box5:p.share,ded:p.ded-adv-carry,adv,current:true}])];
     const sum=k=>trips.reduce((s,t)=>s+t[k],0);
     const box5=sum("box5"),ded=sum("ded"),advY=sum("adv");
     return{c,i,trips,box5,ded,adv:advY,net:box5-ded-advY};
@@ -1009,6 +1017,9 @@ function markSent(){
   st.focus();
 }
 function renderYE(r){
+  // Keep the 1099 preview in step with the numbers: update it, or hide it if the open trip now has problems.
+  const pre=$("yeReport");
+  if(pre&&!pre.hidden){if(state.tickets.length&&gateProblems().length){pre.hidden=true;pre.textContent="";const st=$("yeStatus");if(st)st.hidden=true}else{const tx=reportText();if(pre.textContent!==tx)pre.textContent=tx}}
   const Y=taxYear();
   $("yeYear").textContent="Tax year "+Y;
   $("yeDeadline").textContent=`Usual filing deadlines for tax year ${Y}: copies to crew by January 31, ${Y+1}; paper filing with the IRS by the end of February, or e-file by March 31, ${Y+1}. A deadline on a weekend or holiday moves to the next business day. Box 5 amounts are reported whatever the size. Your accountant confirms the exact dates.`;
@@ -1214,7 +1225,14 @@ function tripProblems(){
   state.tickets.forEach(t=>(t.ifq||[]).forEach(q=>{const p=num(q.pct),nm=`${tName(t)}: IFQ lease ${raw(q.holder)||""}`.trim();
     if(raw(q.pct)===""||p<=0||p>100)P.push(`${nm}: lease % is ${raw(q.pct)||"empty"}. It must be more than 0 and at most 100.`);
     const sel=q.sp?t.lines.filter(l=>l.name===q.sp):t.lines,base=sel.reduce((s,l)=>s+lineC(l),0),all=t.lines.reduce((s,l)=>s+lineC(l),0);
-    if(num(q.tax)<0)P.push(`${nm}: fish taxes are negative.`);else if(cents(q.tax)>all)P.push(`${nm}: fish taxes are larger than the ticket value.`)}));
+    if(num(q.tax)<0)P.push(`${nm}: fish taxes are negative.`);else if(cents(q.tax)>all)P.push(`${nm}: fish taxes are larger than the ticket value.`);
+    if(q.sp&&!t.lines.some(l=>l.name===q.sp))P.push(`${nm}: the species "${q.sp}" is no longer on this ticket. Choose the species again.`)}));
+  state.tickets.forEach(t=>{const Q=t.ifq||[];if(!Q.length)return;
+    const tx=[...new Set(Q.map(q=>Math.max(0,cents(q.tax))))];
+    if(tx.length>1)P.push(`${tName(t)}: the IFQ leases have different fish-tax totals (${tx.map(fmtC).join(", ")}). Fish taxes are for the whole ticket, so type the same total on every lease row.`);
+    [...new Set(t.lines.map(l=>l.name||""))].forEach(n=>{const sum=Q.filter(q=>!q.sp||q.sp===n).reduce((s,q)=>s+Math.max(0,num(q.pct)),0);
+      if(sum>100.0001)P.push(`${tName(t)}: IFQ leases on ${n||"this ticket"} add up to ${pctTxt(sum)} %. Together they can be at most 100 %.`)})});
+  if(!raw($("date").value))P.push("The landing date is empty. Fill it in at the top of the Fish tickets page.");
   const T=num($("tripDays").value);
   state.crew.forEach(c=>{if(c.off)return;const nm=c.name||"Unnamed";
     if(num(c.share)<0)P.push(`${nm}: shares are negative.`);
@@ -1225,25 +1243,34 @@ function tripProblems(){
   if($("poolDiv").value==="fixed"){const fr=raw($("poolFixed").value),fx=num(fr),onSh=Math.round(state.crew.filter(c=>!c.off).reduce((s,c)=>s+Math.max(0,effShare(c)),0)*1000)/1000;
     if(fr===""||fx<=0)P.push("A fixed number of shares is chosen, but the number is empty. Type the number of shares the pool is divided by, for example 10.");
     else if(fx<onSh)P.push(`The fixed number of shares is ${fr}, but the crew on board have ${shTxt(onSh)} shares. It must be at least ${shTxt(onSh)}, or choose "The shares on board this trip".`)}
+  const ifqTax=state.tickets.some(t=>(t.ifq||[]).some(q=>cents(q.tax)>0));
+  if(ifqTax&&!state.exp.some(e=>catOf(e.name)==="fees"&&cents(e.amt)>0))W.push(`Fish taxes are typed on an IFQ lease, but there is no "Fish taxes & assessments" expense. The IFQ row only uses the taxes to work out the lease fee. If the taxes are to be paid before the split, add them under Expenses too.`);
   const r=run();
   if(!P.length&&r.basis<0)W.push(`Expenses are larger than the catch value (settlement basis ${fmtC(r.basis)}). The crew gets nothing and the vessel/owner carries the loss.`);
   else if(!P.length&&r.pool<0)W.push(`Expenses charged to the crew are larger than the crew share (crew pool ${fmtC(r.pool)}). The crew gets nothing from this trip.`);
   return{P,W};
 }
-function closeTrip(){
-  const r=run(),label=curTrip();
-  const tp=tripProblems();
-  if(tp.P.length){exStatus(`Cannot close yet. ${tp.P.join(" ")}`,1);return}
-  if(r.gross<=0){exStatus("Cannot close yet. Add at least one fish ticket with a value greater than $0.",1);return}
-  if(!state.crew.some(c=>!c.off)){exStatus("Add the crew before closing the trip.",1);return}
+// One set of checks for closing a trip, the CSV, the QuickBooks journal and the 1099 report.
+function gateProblems(){
+  const out=[...tripProblems().P];
   const unT=state.tickets.filter(o=>o.status==="scanned").map(t=>"Fish ticket "+(t.no?"#"+t.no:"")+(t.label?" ("+t.label+")":"")),
         unE=state.exp.filter(o=>o.status==="scanned").map(e=>"Receipt: "+(e.name||"Unnamed expense")+" "+fmtC(cents(e.amt)));
   const un=[...unT,...unE];
-  if(un.length){exStatus(`Cannot close yet. Not checked: ${un.join("; ")}. Check the numbers against the photo or the paper copy and tap “Numbers checked”.`,1);return}
+  if(un.length)out.push(`Not checked: ${un.join("; ")}. Check the numbers against the photo or the paper copy and tap “Numbers checked”.`);
   const np=[];state.tickets.forEach(t=>t.lines.forEach(l=>{if(num(l.lbs)>0&&num(l.price)<=0)np.push(`${l.name||"Unnamed line"} on ticket ${t.no?"#"+t.no:t.label||""}`.trim())}));
-  if(np.length){exStatus(`Cannot close yet. No price: ${np.join("; ")}. Fill in the price per lb from the buyer's settlement.`,1);return}
+  if(np.length)out.push(`No price: ${np.join("; ")}. Fill in the price per lb from the buyer's settlement.`);
+  const dT=findTicketDups().length,dE=findDups().length;
+  if(dT||dE)out.push(`Possible duplicate${dT+dE>1?"s":""} not resolved (${[dT?`${dT} fish ticket${dT>1?"s":""}`:"",dE?`${dE} expense${dE>1?"s":""}`:""].filter(Boolean).join(", ")}). Tap “Keep both” or delete the copy.`);
+  return out;
+}
+function closeTrip(){
+  const r=run(),label=curTrip();
+  const tp=tripProblems(),G=gateProblems();
+  if(G.length){exStatus(`Cannot close yet. ${G.join(" ")}`,1);return}
+  if(r.gross<=0){exStatus("Cannot close yet. Add at least one fish ticket with a value greater than $0.",1);return}
+  if(!state.crew.some(c=>!c.off)){exStatus("Add the crew before closing the trip.",1);return}
   const owes=state.crew.map((c,i)=>[c,r.people[i]]).filter(([c,p])=>!c.off&&p.pay<0).map(([c,p])=>`${c.name||"Unnamed"} owes the vessel ${fmtC(-p.pay)}`);
-  if(!confirm(`Close “${label}”? The settlement is saved under Closed trips and can no longer be changed. Each crew member's share is added to the year-to-date totals, and the fish tickets, expenses, lost gear and personal deductions are cleared for the next trip.`+(tp.W.length?`\n\nWarning: ${tp.W.join(" ")}`:"")+(owes.length?`\n\nNote: deductions are larger than the share for:\n${owes.join("\n")}\nThis shows as a negative pay on the slip. Add it as an advance on the next trip if it is to be carried over.`:"")))return;
+  if(!confirm(`Close “${label}”? The settlement is saved under Closed trips and can no longer be changed. Each crew member's share is added to the year-to-date totals, and the fish tickets, expenses, lost gear and personal deductions are cleared for the next trip.`+(tp.W.length?`\n\nWarning: ${tp.W.join(" ")}`:"")+(owes.length?`\n\nNote: deductions are larger than the share for:\n${owes.join("\n")}\nThis shows as a negative pay on the slip, and the amount is carried to the next trip as a deduction. You can remove it there if it is settled another way.`:"")))return;
   state.crew.forEach(c=>{if(!c.cid)c.cid=newCid();if(typeof c.name==="string")c.name=c.name.replace(/\s+/g," ").trim()});
   const act=state.crew.map((c,i)=>[c,i]).filter(([c])=>!c.off);
   const prev=state.correcting?(state.archive||[]).find(x=>x.id===state.correcting):null;
@@ -1261,10 +1288,13 @@ function closeTrip(){
     qb:qbX.map(x=>({no:x.no,at:x.at,total:x.total})),
     slips:act.map(([c,i])=>slipText(i,r))
   }];
+  const carried=[];
   state.crew.forEach((c,i)=>{
-    const p=r.people[i],adv=c.deds.filter(d=>d.type==="Advance").reduce((s,d)=>s+cents(d.amt),0);
-    if(!c.off)c.prior=[...(c.prior||[]),{trip:label+(prev?` (corrected, v${(prev.version||1)+1})`:""),box5:p.share,ded:p.ded-adv,adv,aid}];
+    const p=r.people[i],{adv,carry}=dedSplit(c);
+    if(!c.off)c.prior=[...(c.prior||[]),{trip:label+(prev?` (corrected, v${(prev.version||1)+1})`:""),box5:p.share,ded:p.ded-adv-carry,adv,aid}];
     c.deds=[];c.days="";
+    // Negative pay (the crew member owes the vessel) is carried to the next trip as a deduction.
+    if(!c.off&&p.pay<0){c.deds.push({type:"Advance",amt:+(-p.pay/100).toFixed(2),carry:label});carried.push(`${c.name||"Unnamed"} ${fmtC(-p.pay)}`)}
   });
   state.tickets=[];state.exp=[];state.gear=[];$("tripDays").value="";
   const m=String($("trip").value).match(/^(.*?)(\d+)\s*$/);
@@ -1274,20 +1304,29 @@ function closeTrip(){
   const wasCorr=!!prev;state.correcting="";state.corrReason="";
   ui.expOpen.clear();ui.tOpen.clear();
   renderLines();renderResults();
-  if(wasCorr){exStatus(`The corrected settlement for “${label}” is closed as version ${(prev.version||1)+1}. The original is kept and marked Superseded.`);return}
-  exStatus(`“${label}” is closed and added to the year-to-date totals. Add the fish tickets for the next trip.`);
+  if(wasCorr){exStatus((carried.length?`Owed to the vessel, carried to the next trip: ${carried.join(", ")}. `:"")+`The corrected settlement for “${label}” is closed as version ${(prev.version||1)+1}. The original is kept and marked Superseded.`);return}
+  exStatus(`“${label}” is closed and added to the year-to-date totals. Add the fish tickets for the next trip.`+(carried.length?` Owed to the vessel, carried to the next trip as a deduction: ${carried.join(", ")}.`:""));
 }
 document.addEventListener("input",e=>{
   const t=e.target;
   if(t.type==="file") return;
   const k=t.dataset.k;
-  if(k==="line"){state.tickets[+t.dataset.t].lines[+t.dataset.i][t.dataset.f]=t.value}
-  else if(k==="ticket"){state.tickets[+t.dataset.t][t.dataset.f]=t.value}
+  if(k==="line"){const ti=+t.dataset.t,tk=state.tickets[ti],ln=tk.lines[+t.dataset.i],f=t.dataset.f;
+    if(f==="name"){
+      // Keep IFQ leases linked to the species when the line is renamed.
+      const old=ln.name||ln.was||"";ln.name=t.value;
+      if(old&&!tk.lines.some(l=>l!==ln&&l.name===old))(tk.ifq||[]).forEach(q=>{if(q.sp===old)q.sp=t.value||old});
+      if(t.value)delete ln.was;else if(old)ln.was=old;
+      refreshSp(ti);
+    }else ln[f]=t.value;
+    uncheck(tk,"ticket",ti)}
+  else if(k==="ticket"){const tk=state.tickets[+t.dataset.t];tk[t.dataset.f]=t.value;if(["no","date"].includes(t.dataset.f))uncheck(tk,"ticket",+t.dataset.t)}
   else if(k==="ifq"){const q=state.tickets[+t.dataset.t].ifq[+t.dataset.j];q[t.dataset.f]=t.value}
   else if(k){state[k][+t.dataset.i][t.dataset.f]=t.value;
     if(k==="exp"){const ix=t.dataset.i,e=state.exp[+ix],f=t.dataset.f;
       if(f==="qty"||f==="price"){const q=num(e.qty),pr=num(e.price);if(q>0&&pr>0){e.amt=Math.round(q*pr*100)/100;const a=$("e-amt-"+ix);if(a)a.value=e.amt}}
-      else if(f==="amt"&&num(e.price)>0){e.price="";const pe=$("e-price-"+ix);if(pe)pe.value=""}}}
+      else if(f==="amt"&&num(e.price)>0){e.price="";const pe=$("e-price-"+ix);if(pe)pe.value=""}
+      if(["amt","qty","price"].includes(f))uncheck(e,"exp",+ix)}}
   else if(t.dataset.ded!==undefined){state.crew[+t.dataset.ded].deds[+t.dataset.j][t.dataset.f]=t.value}
   else if(!["crewPct","avgCrew","date","trip","tripDays","poolDiv","poolFixed"].includes(t.id)) return;
   if(t.id==="poolDiv")syncPoolUI();
@@ -1364,7 +1403,9 @@ document.addEventListener("click",e=>{
   else if(t.dataset.purge!==undefined){const c=state.crew[+t.dataset.purge];if(hasHistory(c))return;if(!confirm(`Delete ${c.name||"this crew member"}? They are not in any closed trip, so nothing else is lost.`))return;state.crew.splice(+t.dataset.purge,1);ui.offOpen=true}
   else if(t.id==="addCrew"){state.crew.push({cid:newCid(),name:"",role:"Deckhand",share:1,deds:[],tin:null,tinStatus:"missing",prior:[]});focusSel=`#m-name-${state.crew.length-1}`}
   else if(t.dataset.w9!==undefined){const c=state.crew[+t.dataset.w9];c.tinStatus="ok";renderResults();return}
-  else if((t.id==="exCsv"||t.id==="exQbo")&&tripProblems().P.length){exStatus(`Cannot export yet. ${tripProblems().P.join(" ")}`,1);return}
+  else if((t.id==="exCsv"||t.id==="exQbo")&&gateProblems().length){exStatus(`Cannot export yet. ${gateProblems().join(" ")}`,1);return}
+  else if((t.id==="ye1"||t.id==="ye2")&&state.tickets.length&&gateProblems().length){const st=$("yeStatus");st.hidden=false;st.className="status err";
+    st.textContent=`The 1099 report includes the open trip, and it has problems that would make the numbers wrong. Fix them first (Settlement tab): ${gateProblems().join(" ")}`;st.focus();return}
   else if(t.id==="exCsv"){download(`CrewSettle-${slug(curTrip())}${corrTag()}-settlement.csv`,settlementCSV(),"text/csv").then(ok=>{if(ok)exStatus("Settlement CSV saved. It opens in Excel or Google Sheets.")});return}
   else if(t.id==="exQbo"){const q=qboCSV();if(!q.balanced){exStatus("The journal does not balance. Check the numbers before exporting.");return}
     const no=$("qbNo").value||"CS-1",prevX=(state.qbLog||[]).filter(x=>x.no===no);
@@ -1600,6 +1641,7 @@ async function loadBoat(){
   cs.boat=mem[0].boats;
   const {data:s,error:e2}=await cs.db.from("seasons").select("data,updated_at").eq("boat_id",cs.boat.id).maybeSingle();
   if(e2)throw e2;
+  cs.ver=s?s.updated_at:null;cs.conflict=false;
   const migrated=!!(s&&s.data&&s.data.state&&Array.isArray(s.data.state.crew)&&s.data.state.crew.some(c=>!c.cid));
   cs.loading=true;
   try{ if(s&&s.data)applySeason(s.data); else blankSeason(cs.boat.name); }finally{cs.loading=false}
@@ -1616,15 +1658,40 @@ function scheduleSave(){
   if(!cs.saving&&unsaved())cloudState(navigator.onLine===false?"Offline – not saved":"Not saved yet…",navigator.onLine===false?"err":"");
   clearTimeout(cs.timer);cs.timer=setTimeout(saveCloud,1500);
 }
+function showConflict(){
+  cs.conflict=true;clearTimeout(cs.timer);
+  cloudState("Changed on another device \u2013 NOT saved. Reload the page.","err");
+  const b=g("conflictBar");if(b)b.hidden=false;
+}
+async function checkRemote(){
+  if(!cs.boat||cs.saving||cs.conflict)return;
+  try{
+    const {data:s,error}=await cs.db.from("seasons").select("data,updated_at").eq("boat_id",cs.boat.id).maybeSingle();
+    if(error||!s||s.updated_at===cs.ver)return;
+    if(unsaved()){showConflict();return}
+    cs.loading=true;try{applySeason(s.data)}finally{cs.loading=false}
+    cs.ver=s.updated_at;cs.lastJson=sigNow();
+    cloudState("Updated from another device","ok");
+  }catch(_){}
+}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")checkRemote()});
+window.addEventListener("focus",()=>checkRemote());
 async function saveCloud(){
-  if(!cs.boat)return;
+  if(!cs.boat||cs.conflict)return;
   if(cs.saving){cs.again=true;return}
   const d=seasonData(),sig=JSON.stringify(d.state)+JSON.stringify(d.fields);
   if(sig===cs.lastJson)return;
   cs.saving=true;cloudState("Saving…");
   try{
-    const {error}=await cs.db.from("seasons").upsert({boat_id:cs.boat.id,data:d,updated_at:new Date().toISOString(),updated_by:cs.user.id});
-    if(error)throw error;
+    const now=new Date().toISOString(),row={data:d,updated_at:now,updated_by:cs.user.id};
+    // Save only if nobody else has saved since we loaded (otherwise one device would wipe out the other's work).
+    const res=cs.ver
+      ?await cs.db.from("seasons").update(row).eq("boat_id",cs.boat.id).eq("updated_at",cs.ver).select("updated_at")
+      :await cs.db.from("seasons").insert({boat_id:cs.boat.id,...row}).select("updated_at");
+    if(res.error&&res.error.code==="23505"){showConflict();return}
+    if(res.error)throw res.error;
+    if(!res.data||!res.data.length){showConflict();return}
+    cs.ver=res.data[0].updated_at;
     cs.lastJson=sig;cloudState("Saved","ok");
   }catch(e){cloudState("Not saved – no connection. Retrying…","err");setTimeout(scheduleSave,8000)}
   finally{cs.saving=false;if(cs.again){cs.again=false;scheduleSave()}}
